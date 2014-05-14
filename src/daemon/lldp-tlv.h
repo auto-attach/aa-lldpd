@@ -18,6 +18,7 @@
 #ifndef _LLDP_TLV_H
 #define _LLDP_TLV_H
 
+
 #define LLDP_MULTICAST_ADDR	{						\
 	0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e					\
 }
@@ -37,6 +38,7 @@
 #define LLDP_TLV_ORG_DOT3	{0x00, 0x12, 0x0f}
 #define LLDP_TLV_ORG_MED	{0x00, 0x12, 0xbb}
 #define LLDP_TLV_ORG_DCBX	{0x00, 0x1b, 0x21}
+#define LLDP_TLV_ORG_AVAYA      {0x00, 0x04, 0x0D}
 
 #define LLDP_TLV_DOT1_PVID	1
 #define LLDP_TLV_DOT1_PPVID	2
@@ -60,4 +62,9 @@
 #define LLDP_TLV_MED_IV_MODEL	10
 #define	LLDP_TLV_MED_IV_ASSET	11
 
+#endif
+
+#ifdef ENABLE_AVAYA_FA
+#define LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE           0x08
+#define LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE   0x09
 #endif

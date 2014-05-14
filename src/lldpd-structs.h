@@ -42,6 +42,12 @@
 #include "marshal.h"
 #include "lldp-const.h"
 
+
+/* Add definitions for Avaya tlv structures */
+#ifdef ENABLE_AVAYA_FA
+#include "avaya-structs.h"
+#endif
+
 #ifdef ENABLE_DOT1
 struct lldpd_ppvid {
 	TAILQ_ENTRY(lldpd_ppvid) p_entries;
@@ -252,6 +258,10 @@ struct lldpd_port {
 	TAILQ_HEAD(, lldpd_vlan) p_vlans;
 	TAILQ_HEAD(, lldpd_ppvid) p_ppvids;
 	TAILQ_HEAD(, lldpd_pi)	  p_pids;
+#endif
+#ifdef ENABLE_AVAYA_FA
+	struct lldpd_avaya_element_tlv p_element;
+	TAILQ_HEAD(, lldpd_avaya_isid_vlan_maps_tlv)	p_isid_vlan_maps; 
 #endif
 };
 MARSHAL_BEGIN(lldpd_port)

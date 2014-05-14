@@ -78,6 +78,10 @@ lldp_send(struct lldpd *global,
 	int i;
 	const u_int8_t med[] = LLDP_TLV_ORG_MED;
 #endif
+#ifdef ENABLE_AVAYA_FA
+	const u_int8_t avaya[] = LLDP_TLV_ORG_AVAYA;
+	struct lldpd_avaya_isid_vlan_maps_tlv *vlan_isid_map;
+#endif
 
 	log_debug("lldp", "send LLDP PDU to %s",
 	    hardware->h_ifname);
@@ -424,6 +428,37 @@ lldp_send(struct lldpd *global,
 	}
 #endif
 
+#ifdef ENABLE_AVAYA_FA
+	/* Add Avaya tlvs to packet */
+		/* AVAYA-FA-ELEMENT */
+	if (port->p_element.type != 0) {
+		if (!(
+		      POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+		      POKE_BYTES(avaya, sizeof(avaya)) &&
+		      POKE_UINT8(LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE) &&
+		      POKE_BYTES(&port->p_element, sizeof(port->p_element)) &&
+		      POKE_END_LLDP_TLV))
+			goto toobig;
+	}
+	
+	TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
+	     u_int16_t status_vlan_word;
+	     status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
+		     vlan_isid_map->isid_vlan_data.vlan;
+	     if (!(
+	     	POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+	     	POKE_BYTES(avaya, sizeof(avaya)) &&
+	     	POKE_UINT8(LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE) &&
+	     	POKE_BYTES(vlan_isid_map->msg_auth_digest, 
+	     	  sizeof(vlan_isid_map->msg_auth_digest)) &&
+		POKE_UINT16(status_vlan_word) &&
+	     	POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+	     	  sizeof(vlan_isid_map->isid_vlan_data.isid)) &&
+	     	POKE_END_LLDP_TLV))
+	     	  goto toobig;
+	 }
+#endif
+
 	/* END */
 	if (!(
 	      POKE_START_LLDP_TLV(LLDP_TLV_END) &&
@@ -483,6 +518,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	const char dot3[] = LLDP_TLV_ORG_DOT3;
 	const char med[] = LLDP_TLV_ORG_MED;
 	const char dcbx[] = LLDP_TLV_ORG_DCBX;
+	const char avaya_oid[] = LLDP_TLV_ORG_AVAYA;
 	char orgid[3];
 	int length, gotend = 0, ttl_received = 0;
 	int tlv_size, tlv_type, tlv_subtype;
@@ -493,6 +529,10 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	int vlan_len;
 	struct lldpd_ppvid *ppvid;
 	struct lldpd_pi *pi = NULL;
+#endif
+#ifdef ENABLE_AVAYA_FA
+	struct lldpd_avaya_element_tlv *p_element = NULL;
+	struct lldpd_avaya_isid_vlan_maps_tlv *isid_vlan_map = NULL;
 #endif
 	struct lldpd_mgmt *mgmt;
 	int af;
@@ -517,6 +557,9 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	TAILQ_INIT(&port->p_vlans);
 	TAILQ_INIT(&port->p_ppvids);
 	TAILQ_INIT(&port->p_pids);
+#endif
+#ifdef ENABLE_AVAYA_FA
+	TAILQ_INIT(&port->p_isid_vlan_maps);
 #endif
 
 	length = s;
@@ -808,6 +851,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 				}
 #endif
 			} else if (memcmp(med, orgid, sizeof(orgid)) == 0) {
+			
 				/* LLDP-MED */
 #ifndef ENABLE_LLDPMED
 				hardware->h_rx_unrecognized_cnt++;
@@ -989,10 +1033,61 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					hardware->h_rx_unrecognized_cnt++;
 				}
 #endif /* ENABLE_LLDPMED */
-			} else if (memcmp(dcbx, orgid, sizeof(orgid)) == 0) {
-				log_debug("lldp", "unsupported DCBX tlv received on %s - ignore",
-				    hardware->h_ifname);
+			} else if ((memcmp(dcbx, orgid, sizeof(orgid)) == 0) || (memcmp(avaya_oid, orgid, sizeof(orgid)) == 0)) {
+                               if (memcmp(dcbx, orgid, sizeof(orgid)) == 0) {
+                            	  log_debug("lldp", "unsupported DCBX tlv received on %s - ignore", hardware->h_ifname);
+                               }
+#ifndef ENABLE_AVAYA_FA
 				hardware->h_rx_unrecognized_cnt++;
+#else
+				u_int16_t fa_element_word;
+				switch(tlv_subtype) {
+				case LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE:
+					if ((p_element = (struct lldpd_avaya_element_tlv *) 
+					  calloc(1, sizeof(struct lldpd_avaya_element_tlv)))
+					  == NULL ) {
+						log_warnx("lldp", "unable to allocate memory "
+						"for avaya_element_tlv struct");
+						goto malformed;
+					}
+					fa_element_word = PEEK_UINT16;
+					/* type is first 4 most-significant bits */
+					p_element->type = fa_element_word >> 12;
+					/* mgmt_vlan is last 12 bits */
+					p_element->mgmt_vlan = fa_element_word & 0x0FFF;
+					port->p_element = *p_element;
+				       	break;
+				case LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE:
+					if ((isid_vlan_map = 
+					  (struct lldpd_avaya_isid_vlan_maps_tlv *) 
+					  calloc(1, sizeof(struct lldpd_avaya_isid_vlan_maps_tlv)))
+					  == NULL ) {
+						log_warnx("lldp", "unable to allocate memory "
+						"for avaya_isid_vlan_maps_tlv struct");
+						goto malformed;
+					}
+					PEEK_BYTES(&isid_vlan_map->msg_auth_digest,
+						sizeof(isid_vlan_map->msg_auth_digest));
+					u_int16_t fa_status_vlan_word;
+					fa_status_vlan_word = PEEK_UINT16;
+					/* status is first 4 most-significant bits */
+					isid_vlan_map->isid_vlan_data.status =
+						fa_status_vlan_word >> 12;
+					/* vlan is last 12 bits */
+					isid_vlan_map->isid_vlan_data.vlan = 
+						fa_status_vlan_word & 0x0FFF;
+					PEEK_BYTES(&isid_vlan_map->isid_vlan_data.isid,
+						sizeof(isid_vlan_map->isid_vlan_data.isid));
+					TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
+						isid_vlan_map, m_entries);
+					isid_vlan_map = NULL;
+				       	break;
+				default:
+					hardware->h_rx_unrecognized_cnt++;
+					break;
+				}
+#endif
+
 			} else {
 				log_info("lldp", "unknown org tlv [%02x:%02x:%02x] received on %s",
 				    orgid[0], orgid[1], orgid[2],

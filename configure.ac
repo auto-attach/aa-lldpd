@@ -252,6 +252,7 @@ lldp_ARG_ENABLE([sonmp], [SynOptics Network Management Protocol], [yes])
 lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [yes])
 lldp_ARG_ENABLE([dot1], [Dot1 extension (VLAN stuff)], [yes])
 lldp_ARG_ENABLE([dot3], [Dot3 extension (PHY stuff)], [yes])
+lldp_ARG_ENABLE([avaya_fa],[Avaya Fabric Attach extension], [no])
 
 # Oldies
 lldp_ARG_ENABLE([oldies], [compatibility with Linux kernel older than 2.6.18], [no])
@@ -292,6 +293,7 @@ cat <<EOF
   LLDPMED........: $enable_lldpmed
   DOT1...........: $enable_dot1
   DOT3...........: $enable_dot3
+  AVAYA_FA.......: $enable_avaya_fa
   XML output.....: ${with_xml-no}
   JSON output....: ${with_json-no}
   Oldies support.: $enable_oldies
