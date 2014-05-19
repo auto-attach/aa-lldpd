@@ -825,20 +825,20 @@ START_TEST (test_avaya)
 	for (int i=0; i<20; i++) {
 		ck_assert_int_eq(p_map.msg_auth_digest[i], received_map->msg_auth_digest[i]);
 	}
-	ck_assert_int_eq(p_map.isid_vlan_data.status,received_map->isid_vlan_data.status);
-	ck_assert_int_eq(p_map.isid_vlan_data.vlan,received_map->isid_vlan_data.vlan);
-	ck_assert_int_eq(p_map.isid_vlan_data.isid[0],received_map->isid_vlan_data.isid[0]);
-	ck_assert_int_eq(p_map.isid_vlan_data.isid[1],received_map->isid_vlan_data.isid[1]);
-	ck_assert_int_eq(p_map.isid_vlan_data.isid[2],received_map->isid_vlan_data.isid[2]);
+	ck_assert_int_eq(p_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
+	ck_assert_int_eq(p_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[1], received_map->isid_vlan_data.isid[1]);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[2], received_map->isid_vlan_data.isid[2]);
 	received_map = TAILQ_NEXT(received_map, m_entries);
 	for (int i=0; i<20; i++) {
 		ck_assert_int_eq(p2_map.msg_auth_digest[i], received_map->msg_auth_digest[i]);
 	}
-	ck_assert_int_eq(p2_map.isid_vlan_data.status,received_map->isid_vlan_data.status);
-	ck_assert_int_eq(p2_map.isid_vlan_data.vlan,received_map->isid_vlan_data.vlan);
-	ck_assert_int_eq(p2_map.isid_vlan_data.isid[0],received_map->isid_vlan_data.isid[0]);
-	ck_assert_int_eq(p2_map.isid_vlan_data.isid[1],received_map->isid_vlan_data.isid[1]);
-	ck_assert_int_eq(p2_map.isid_vlan_data.isid[2],received_map->isid_vlan_data.isid[2]);
+	ck_assert_int_eq(p2_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
+	ck_assert_int_eq(p2_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[1], received_map->isid_vlan_data.isid[1]);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[2], received_map->isid_vlan_data.isid[2]);
 
 }
 END_TEST

@@ -446,16 +446,16 @@ lldp_send(struct lldpd *global,
 	     status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
 		     vlan_isid_map->isid_vlan_data.vlan;
 	     if (!(
-	     	POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
-	     	POKE_BYTES(avaya, sizeof(avaya)) &&
-	     	POKE_UINT8(LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE) &&
-	     	POKE_BYTES(vlan_isid_map->msg_auth_digest, 
-	     	  sizeof(vlan_isid_map->msg_auth_digest)) &&
-		POKE_UINT16(status_vlan_word) &&
-	     	POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
-	     	  sizeof(vlan_isid_map->isid_vlan_data.isid)) &&
-	     	POKE_END_LLDP_TLV))
-	     	  goto toobig;
+	     	   POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+	     	   POKE_BYTES(avaya, sizeof(avaya)) &&
+	     	   POKE_UINT8(LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE) &&
+	     	   POKE_BYTES(vlan_isid_map->msg_auth_digest, 
+		     sizeof(vlan_isid_map->msg_auth_digest)) &&
+		   POKE_UINT16(status_vlan_word) &&
+	     	   POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+	     	     sizeof(vlan_isid_map->isid_vlan_data.isid)) &&
+	     	   POKE_END_LLDP_TLV))
+	     	     goto toobig;
 	 }
 #endif
 
@@ -1041,6 +1041,8 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 				hardware->h_rx_unrecognized_cnt++;
 #else
 				u_int16_t fa_element_word;
+				u_int16_t fa_status_vlan_word;
+
 				switch(tlv_subtype) {
 				case LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE:
 					if ((p_element = (struct lldpd_avaya_element_tlv *) 
@@ -1068,7 +1070,6 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					}
 					PEEK_BYTES(&isid_vlan_map->msg_auth_digest,
 						sizeof(isid_vlan_map->msg_auth_digest));
-					u_int16_t fa_status_vlan_word;
 					fa_status_vlan_word = PEEK_UINT16;
 					/* status is first 4 most-significant bits */
 					isid_vlan_map->isid_vlan_data.status =

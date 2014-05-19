@@ -248,7 +248,7 @@ lldp_ARG_ENABLE([fdp], [Foundry Discovery Protocol], [yes])
 lldp_ARG_ENABLE([edp], [Extreme Discovery Protocol], [yes])
 lldp_ARG_ENABLE([sonmp], [SynOptics Network Management Protocol], [yes])
 
-# LLDPMED/Dot1/Dot3
+# LLDPMED/Dot1/Dot3/Avaya
 lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [yes])
 lldp_ARG_ENABLE([dot1], [Dot1 extension (VLAN stuff)], [yes])
 lldp_ARG_ENABLE([dot3], [Dot3 extension (PHY stuff)], [yes])
