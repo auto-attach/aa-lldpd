@@ -14,7 +14,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
 #include "lldpd.h"
 #include "frame.h"
 
@@ -1043,6 +1042,8 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 				u_int16_t fa_element_word;
 				u_int16_t fa_status_vlan_word;
 
+				log_info("avaya", "Received avaya tlv");
+
 				switch(tlv_subtype) {
 				case LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE:
 					if ((p_element = (struct lldpd_avaya_element_tlv *) 
@@ -1058,6 +1059,9 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					/* mgmt_vlan is last 12 bits */
 					p_element->mgmt_vlan = fa_element_word & 0x0FFF;
 					port->p_element = *p_element;
+					log_info("avaya", "Element type: %d, Mgmt vlan: %d", 
+							p_element->type,
+							p_element->mgmt_vlan);
 				       	break;
 				case LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE:
 					if ((isid_vlan_map = 
@@ -1081,10 +1085,16 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 						sizeof(isid_vlan_map->isid_vlan_data.isid));
 					TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
 						isid_vlan_map, m_entries);
+					log_info("avaya", "Vlan<->Isid received. Vlan: %d Isid: %d%d%d", 
+							isid_vlan_map->isid_vlan_data.vlan,
+							isid_vlan_map->isid_vlan_data.isid[0],
+							isid_vlan_map->isid_vlan_data.isid[1],
+							isid_vlan_map->isid_vlan_data.isid[2]);
 					isid_vlan_map = NULL;
 				       	break;
 				default:
 					hardware->h_rx_unrecognized_cnt++;
+					log_info("avaya", "Unrecogised tlv subtype received");
 					break;
 				}
 #endif

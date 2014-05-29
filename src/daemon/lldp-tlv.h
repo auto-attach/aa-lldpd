@@ -38,7 +38,7 @@
 #define LLDP_TLV_ORG_DOT3	{0x00, 0x12, 0x0f}
 #define LLDP_TLV_ORG_MED	{0x00, 0x12, 0xbb}
 #define LLDP_TLV_ORG_DCBX	{0x00, 0x1b, 0x21}
-#define LLDP_TLV_ORG_AVAYA      {0x00, 0x04, 0x0D}
+#define LLDP_TLV_ORG_AVAYA	{0x00, 0x40, 0x0D}
 
 #define LLDP_TLV_DOT1_PVID	1
 #define LLDP_TLV_DOT1_PPVID	2
