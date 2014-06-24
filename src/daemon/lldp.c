@@ -80,6 +80,7 @@ lldp_send(struct lldpd *global,
 #ifdef ENABLE_AVAYA_FA
 	const u_int8_t avaya[] = LLDP_TLV_ORG_AVAYA;
 	struct lldpd_avaya_isid_vlan_maps_tlv *vlan_isid_map;
+	u_int8_t msg_auth_digest[LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH];
 #endif
 
 	log_debug("lldp", "send LLDP PDU to %s",
@@ -433,42 +434,64 @@ lldp_send(struct lldpd *global,
 	if (port->p_element.type != 0) {
 	    u_int8_t fa_element_first_byte;
 	    u_int8_t fa_element_second_byte;
+	    u_int8_t fa_elem_sys_id_first_byte;
+	    u_int8_t fa_elem_sys_id_second_byte;
 	    // .type should be first 4 most significant bits, so bitwise OR that
 	    // with the first 4 bits of the 12-bit-wide .mgmt_vlan
 	    fa_element_first_byte = ((port->p_element.type & 0xF) << 4) | 
 		((port->p_element.mgmt_vlan >> 8) & 0xF);
 	    // second byte should just be the remaining 8 bits of .mgmt_vlan
 	    fa_element_second_byte = port->p_element.mgmt_vlan & 0x0FF;
+	    // .conn_type should be 4 most sig. bits, so bitwise OR that 
+	    // with the first 4 bits of the 12-bit-wide .smlt_id
+	    fa_elem_sys_id_first_byte = ((port->p_element.conn_type & 0xF) << 4) | 
+		((port->p_element.smlt_id >> 8) & 0xF);
+	    // second byte should just be the remaining 8 bits of .smlt_id
+	    fa_elem_sys_id_second_byte = port->p_element.smlt_id & 0x0FF;
+
 		if (!(
-		      POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
-		      POKE_BYTES(avaya, sizeof(avaya)) &&
-		      POKE_UINT8(LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE) &&
-		      POKE_UINT8(fa_element_first_byte) &&
-		      POKE_UINT8(fa_element_second_byte) &&
-		      POKE_END_LLDP_TLV))
+		    POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+		    POKE_BYTES(avaya, sizeof(avaya)) &&
+		    POKE_UINT8(LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE) &&
+		    POKE_UINT8(fa_element_first_byte) &&
+		    POKE_UINT8(fa_element_second_byte) &&
+		    POKE_BYTES(&port->p_element.system_mac,
+			sizeof(port->p_element.system_mac)) &&
+		    POKE_UINT8(fa_elem_sys_id_first_byte) &&
+		    POKE_UINT8(fa_elem_sys_id_second_byte) &&
+		    POKE_BYTES(&port->p_element.mlt_id, 
+			sizeof(port->p_element.mlt_id)) &&
+		    POKE_END_LLDP_TLV))
 			goto toobig;
 	}
-	
-	int counter = 1;
-	TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
-	     u_int16_t status_vlan_word;
-	     log_info("fabric", "counter: %d, vlan_isid_map &p: %p" ,
-		     counter++,
-		     vlan_isid_map);
+	if ( ! TAILQ_EMPTY(&port->p_isid_vlan_maps) ) {
+	    int j;
+	    // FIXME calculate the msg digest based on HMAC-SHA256 per spec. req.
+	    for( j=0; j < LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH; j++ ) {
+		msg_auth_digest[j] = 0;
+	    }
+	    if (!(
+		POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+		POKE_BYTES(avaya, sizeof(avaya)) &&
+		POKE_UINT8(LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE) &&
+		POKE_BYTES(msg_auth_digest, 
+		    sizeof(msg_auth_digest))
+		))
+		    goto toobig;
 
-	     status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
-		     vlan_isid_map->isid_vlan_data.vlan;
-	     if (!(
-	     	   POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
-	     	   POKE_BYTES(avaya, sizeof(avaya)) &&
-	     	   POKE_UINT8(LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE) &&
-	     	   POKE_BYTES(vlan_isid_map->msg_auth_digest, 
-		     sizeof(vlan_isid_map->msg_auth_digest)) &&
-		   POKE_UINT16(status_vlan_word) &&
-	     	   POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
-	     	     sizeof(vlan_isid_map->isid_vlan_data.isid)) &&
-	     	   POKE_END_LLDP_TLV))
-	     	     goto toobig;
+	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
+		u_int16_t status_vlan_word;
+		status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
+		    vlan_isid_map->isid_vlan_data.vlan;
+		if (!(
+		    POKE_UINT16(status_vlan_word) &&
+		    POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+		      sizeof(vlan_isid_map->isid_vlan_data.isid))
+		    ))
+		    goto toobig;
+	    }
+	    if (! (POKE_END_LLDP_TLV) )
+		goto toobig;
 	}
 #endif
 
@@ -546,6 +569,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 #ifdef ENABLE_AVAYA_FA
 	struct lldpd_avaya_element_tlv *p_element = NULL;
 	struct lldpd_avaya_isid_vlan_maps_tlv *isid_vlan_map = NULL;
+	u_int8_t msg_auth_digest[LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH];
 #endif
 	struct lldpd_mgmt *mgmt;
 	int af;
@@ -1073,7 +1097,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					/* mgmt_vlan is last 12 bits */
 					p_element->mgmt_vlan = fa_element_word & 0x0FFF;
 					port->p_element = *p_element;
-					log_info("avaya", "Element type: %X, Mgmt vlan: %X", 
+					log_info("avaya", "Element type: 0x%X, Mgmt vlan: 0x%X", 
 							p_element->type,
 							p_element->mgmt_vlan);
 				       	break;
@@ -1086,8 +1110,8 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 						"for avaya_isid_vlan_maps_tlv struct");
 						goto malformed;
 					}
-					PEEK_BYTES(&isid_vlan_map->msg_auth_digest,
-						sizeof(isid_vlan_map->msg_auth_digest));
+					PEEK_BYTES(&msg_auth_digest,
+						sizeof(msg_auth_digest));
 					fa_status_vlan_word = PEEK_UINT16;
 					/* status is first 4 most-significant bits */
 					isid_vlan_map->isid_vlan_data.status =
@@ -1099,7 +1123,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 						sizeof(isid_vlan_map->isid_vlan_data.isid));
 					TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
 						isid_vlan_map, m_entries);
-					log_info("avaya", "Vlan<->Isid received. Vlan: %X Isid: %X%X%X", 
+					log_info("avaya", "Vlan<->Isid received. Vlan: 0x%X Isid: 0x%X%X%X", 
 							isid_vlan_map->isid_vlan_data.vlan,
 							isid_vlan_map->isid_vlan_data.isid[0],
 							isid_vlan_map->isid_vlan_data.isid[1],

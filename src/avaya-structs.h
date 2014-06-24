@@ -19,6 +19,10 @@
 struct lldpd_avaya_element_tlv { 
        	unsigned short 	type:4;
        	unsigned short 	mgmt_vlan:12;
+	u_int8_t	system_mac[6];
+	unsigned short	conn_type:4;
+	unsigned short	smlt_id:12;
+	u_int8_t	mlt_id[2];
 };
 
 struct lldpd_avaya_isid_vlan_map_data {
@@ -29,7 +33,6 @@ struct lldpd_avaya_isid_vlan_map_data {
 
 struct lldpd_avaya_isid_vlan_maps_tlv { 
 	TAILQ_ENTRY(lldpd_avaya_isid_vlan_maps_tlv) 	m_entries;
-	u_int8_t  					msg_auth_digest[20];
 	struct 						lldpd_avaya_isid_vlan_map_data isid_vlan_data;
 };
 
