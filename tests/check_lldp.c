@@ -760,13 +760,21 @@ START_TEST (test_avaya)
 	/* Test avaya tlv addition */
 	hardware.h_lport.p_element.type = 0xA;
 	hardware.h_lport.p_element.mgmt_vlan = 0xCDC;
+	hardware.h_lport.p_element.system_id.system_mac[0] = 0x1;
+	hardware.h_lport.p_element.system_id.system_mac[1] = 0x2;
+	hardware.h_lport.p_element.system_id.system_mac[2] = 0x3;
+	hardware.h_lport.p_element.system_id.system_mac[3] = 0x4;
+	hardware.h_lport.p_element.system_id.system_mac[4] = 0x5;
+	hardware.h_lport.p_element.system_id.system_mac[5] = 0x6;
+
+	hardware.h_lport.p_element.system_id.conn_type = 0x5;
+	hardware.h_lport.p_element.system_id.smlt_id = 0xFCC;
+	hardware.h_lport.p_element.system_id.mlt_id[0] = 0xB;
+	hardware.h_lport.p_element.system_id.mlt_id[1] = 0xE;
 
 	struct lldpd_avaya_isid_vlan_maps_tlv p_map;
 	struct lldpd_avaya_isid_vlan_maps_tlv p2_map;
-	for (int i=0; i<20; i++) {
-		p_map.msg_auth_digest[i] = 0;
-		p2_map.msg_auth_digest[i] = 0 * 2;
-	}
+
 	p_map.isid_vlan_data.status = 0xC;
 	p2_map.isid_vlan_data.status = 0xD;
 	p_map.isid_vlan_data.vlan = 0x64;
@@ -779,7 +787,7 @@ START_TEST (test_avaya)
 	p2_map.isid_vlan_data.isid[2] = 6;
 	TAILQ_INIT(&hardware.h_lport.p_isid_vlan_maps);
 	TAILQ_INSERT_TAIL(&hardware.h_lport.p_isid_vlan_maps,&p_map, m_entries);
-//	TAILQ_INSERT_TAIL(&hardware.h_lport.p_isid_vlan_maps,&p2_map, m_entries);
+	TAILQ_INSERT_TAIL(&hardware.h_lport.p_isid_vlan_maps,&p2_map, m_entries);
 	chassis.c_id_subtype = LLDP_CHASSISID_SUBTYPE_LLADDR;
 	chassis.c_id = macaddress;
 	chassis.c_id_len = ETHER_ADDR_LEN;
@@ -816,15 +824,25 @@ START_TEST (test_avaya)
 	/* check FA values */
 	ck_assert_int_eq(nport->p_element.type, hardware.h_lport.p_element.type);
 	ck_assert_int_eq(nport->p_element.mgmt_vlan, hardware.h_lport.p_element.mgmt_vlan);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[0], hardware.h_lport.p_element.system_id.system_mac[0]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[1], hardware.h_lport.p_element.system_id.system_mac[1]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[2], hardware.h_lport.p_element.system_id.system_mac[2]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[3], hardware.h_lport.p_element.system_id.system_mac[3]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[4], hardware.h_lport.p_element.system_id.system_mac[4]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[5], hardware.h_lport.p_element.system_id.system_mac[5]);
+	ck_assert_int_eq(nport->p_element.system_id.conn_type, hardware.h_lport.p_element.system_id.conn_type);
+	ck_assert_int_eq(nport->p_element.system_id.smlt_id, hardware.h_lport.p_element.system_id.smlt_id);
+	ck_assert_int_eq(nport->p_element.system_id.mlt_id[0], hardware.h_lport.p_element.system_id.mlt_id[0]);
+	ck_assert_int_eq(nport->p_element.system_id.mlt_id[1], hardware.h_lport.p_element.system_id.mlt_id[1]);
+
+
 	if (TAILQ_EMPTY(&nport->p_isid_vlan_maps)) {
 		fail("no AVAYA FA isid->vlan maps");
 		return;
 	}
 	struct lldpd_avaya_isid_vlan_maps_tlv *received_map;
 	received_map = TAILQ_FIRST(&nport->p_isid_vlan_maps);
-	for (int i=0; i<20; i++) {
-		ck_assert_int_eq(p_map.msg_auth_digest[i], received_map->msg_auth_digest[i]);
-	}
+	
 	ck_assert_int_eq(p_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
 	ck_assert_int_eq(p_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
 	ck_assert_int_eq(p_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
@@ -835,12 +853,12 @@ START_TEST (test_avaya)
 	for (int i=0; i<20; i++) {
 		ck_assert_int_eq(p2_map.msg_auth_digest[i], received_map->msg_auth_digest[i]);
 	}
+	*/
 	ck_assert_int_eq(p2_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
 	ck_assert_int_eq(p2_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
 	ck_assert_int_eq(p2_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
 	ck_assert_int_eq(p2_map.isid_vlan_data.isid[1], received_map->isid_vlan_data.isid[1]);
 	ck_assert_int_eq(p2_map.isid_vlan_data.isid[2], received_map->isid_vlan_data.isid[2]);
-	*/
 
 }
 END_TEST

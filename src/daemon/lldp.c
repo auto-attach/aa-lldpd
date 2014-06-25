@@ -1079,8 +1079,10 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 #else
 				u_int16_t fa_element_word;
 				u_int16_t fa_status_vlan_word;
+				u_int16_t fa_system_id_word;
+				unsigned short num_mappings;
 
-				log_info("avaya", "Received avaya tlv");
+				log_info("fabric", "Received avaya tlv");
 
 				switch(tlv_subtype) {
 				case LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE:
@@ -1095,44 +1097,76 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					/* type is first 4 most-significant bits */
 					p_element->type = fa_element_word >> 12;
 					/* mgmt_vlan is last 12 bits */
-					p_element->mgmt_vlan = fa_element_word & 0x0FFF;
-					port->p_element = *p_element;
-					log_info("avaya", "Element type: 0x%X, Mgmt vlan: 0x%X", 
-							p_element->type,
-							p_element->mgmt_vlan);
+					port->p_element.mgmt_vlan = fa_element_word & 0x0FFF;
+					log_info("fabric", "Element type: %X, Mgmt vlan: %X", 
+							port->p_element.type,
+							port->p_element.mgmt_vlan);
+					PEEK_BYTES(&port->p_element.system_id.system_mac,
+						sizeof(port->p_element.system_id.system_mac));
+					log_info("fabric", "System mac: 0x%.2X%.2X%.2X%.2X%.2X%.2X",
+						port->p_element.system_id.system_mac[0],
+						port->p_element.system_id.system_mac[1],
+						port->p_element.system_id.system_mac[2],
+						port->p_element.system_id.system_mac[3],
+						port->p_element.system_id.system_mac[4],
+						port->p_element.system_id.system_mac[5]);
+					fa_system_id_word = PEEK_UINT16;
+					port->p_element.system_id.conn_type = fa_system_id_word >> 12;
+					port->p_element.system_id.smlt_id = fa_system_id_word & 0x0FFF;
+					PEEK_BYTES(&port->p_element.system_id.mlt_id,
+						sizeof(port->p_element.system_id.mlt_id));
+					
 				       	break;
 				case LLDP_TLV_AVAYA_FA_ISID_VLAN_ASGNS_SUBTYPE:
-					if ((isid_vlan_map = 
-					  (struct lldpd_avaya_isid_vlan_maps_tlv *) 
-					  calloc(1, sizeof(struct lldpd_avaya_isid_vlan_maps_tlv)))
-					  == NULL ) {
-						log_warnx("lldp", "unable to allocate memory "
-						"for avaya_isid_vlan_maps_tlv struct");
-						goto malformed;
-					}
 					PEEK_BYTES(&msg_auth_digest,
 						sizeof(msg_auth_digest));
-					fa_status_vlan_word = PEEK_UINT16;
-					/* status is first 4 most-significant bits */
-					isid_vlan_map->isid_vlan_data.status =
-						fa_status_vlan_word >> 12;
-					/* vlan is last 12 bits */
-					isid_vlan_map->isid_vlan_data.vlan = 
-						fa_status_vlan_word & 0x0FFF;
-					PEEK_BYTES(&isid_vlan_map->isid_vlan_data.isid,
-						sizeof(isid_vlan_map->isid_vlan_data.isid));
-					TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
-						isid_vlan_map, m_entries);
-					log_info("avaya", "Vlan<->Isid received. Vlan: 0x%X Isid: 0x%X%X%X", 
-							isid_vlan_map->isid_vlan_data.vlan,
-							isid_vlan_map->isid_vlan_data.isid[0],
-							isid_vlan_map->isid_vlan_data.isid[1],
-							isid_vlan_map->isid_vlan_data.isid[2]);
-					isid_vlan_map = NULL;
+					// TODO validate msg digest if necessary
+					
+					// Subtract off tlv type and length (2Bytes) + OUI (3B) +
+					// Subtype (1B) + MSG DIGEST (32B)
+					num_mappings = tlv_size - 4 - LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH;
+					if( (num_mappings % 5) != 0 ) {
+					    log_info("fabric", "malformed vlan-isid mappings tlv received.");
+					} else {
+					    num_mappings /= 5; // Each mapping is 5 Bytes
+					    for( ; num_mappings > 0; num_mappings-- ) {
+						if ((isid_vlan_map = 
+						  (struct lldpd_avaya_isid_vlan_maps_tlv *) 
+						  calloc(1, sizeof(struct lldpd_avaya_isid_vlan_maps_tlv)))
+						  == NULL ) {
+							log_warnx("lldp", "unable to allocate memory "
+							"for avaya_isid_vlan_maps_tlv struct");
+							goto malformed;
+						}
+						fa_status_vlan_word = PEEK_UINT16;
+						/* status is first 4 most-significant bits */
+						isid_vlan_map->isid_vlan_data.status =
+							fa_status_vlan_word >> 12;
+						/* vlan is last 12 bits */
+						isid_vlan_map->isid_vlan_data.vlan = 
+							fa_status_vlan_word & 0x0FFF;
+						PEEK_BYTES(&isid_vlan_map->isid_vlan_data.isid,
+							sizeof(isid_vlan_map->isid_vlan_data.isid));
+						TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
+							isid_vlan_map, m_entries);
+						log_info("fabric", "Vlan<->Isid received. Vlan: 0x%X(%d) "
+							 "Isid: 0x%.2X%.2X%.2X(%d)", 
+								isid_vlan_map->isid_vlan_data.vlan,
+								isid_vlan_map->isid_vlan_data.vlan,
+								isid_vlan_map->isid_vlan_data.isid[0],
+								isid_vlan_map->isid_vlan_data.isid[1],
+								isid_vlan_map->isid_vlan_data.isid[2],
+								(isid_vlan_map->isid_vlan_data.isid[0]<<16) | 
+								(isid_vlan_map->isid_vlan_data.isid[1]<<8) | 
+								(isid_vlan_map->isid_vlan_data.isid[2]) 
+								);
+						isid_vlan_map = NULL;
+					    }
+					}
 				       	break;
 				default:
 					hardware->h_rx_unrecognized_cnt++;
-					log_info("avaya", "Unrecogised tlv subtype received");
+					log_info("fabric", "Unrecogised tlv subtype received");
 					break;
 				}
 #endif
