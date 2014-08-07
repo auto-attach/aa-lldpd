@@ -431,17 +431,31 @@ lldp_send(struct lldpd *global,
 	/* Add Avaya tlvs to packet */
 		/* AVAYA-FA-ELEMENT */
 	if (port->p_element.type != 0) {
+	    u_int8_t fa_element_first_byte;
+	    u_int8_t fa_element_second_byte;
+	    // .type should be first 4 most significant bits, so bitwise OR that
+	    // with the first 4 bits of the 12-bit-wide .mgmt_vlan
+	    fa_element_first_byte = ((port->p_element.type & 0xF) << 4) | 
+		((port->p_element.mgmt_vlan >> 8) & 0xF);
+	    // second byte should just be the remaining 8 bits of .mgmt_vlan
+	    fa_element_second_byte = port->p_element.mgmt_vlan & 0x0FF;
 		if (!(
 		      POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
 		      POKE_BYTES(avaya, sizeof(avaya)) &&
 		      POKE_UINT8(LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE) &&
-		      POKE_BYTES(&port->p_element, sizeof(port->p_element)) &&
+		      POKE_UINT8(fa_element_first_byte) &&
+		      POKE_UINT8(fa_element_second_byte) &&
 		      POKE_END_LLDP_TLV))
 			goto toobig;
 	}
 	
+	int counter = 1;
 	TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
 	     u_int16_t status_vlan_word;
+	     log_info("fabric", "counter: %d, vlan_isid_map &p: %p" ,
+		     counter++,
+		     vlan_isid_map);
+
 	     status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
 		     vlan_isid_map->isid_vlan_data.vlan;
 	     if (!(
@@ -455,7 +469,7 @@ lldp_send(struct lldpd *global,
 	     	     sizeof(vlan_isid_map->isid_vlan_data.isid)) &&
 	     	   POKE_END_LLDP_TLV))
 	     	     goto toobig;
-	 }
+	}
 #endif
 
 	/* END */
@@ -1059,7 +1073,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					/* mgmt_vlan is last 12 bits */
 					p_element->mgmt_vlan = fa_element_word & 0x0FFF;
 					port->p_element = *p_element;
-					log_info("avaya", "Element type: %d, Mgmt vlan: %d", 
+					log_info("avaya", "Element type: %X, Mgmt vlan: %X", 
 							p_element->type,
 							p_element->mgmt_vlan);
 				       	break;
@@ -1085,7 +1099,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 						sizeof(isid_vlan_map->isid_vlan_data.isid));
 					TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
 						isid_vlan_map, m_entries);
-					log_info("avaya", "Vlan<->Isid received. Vlan: %d Isid: %d%d%d", 
+					log_info("avaya", "Vlan<->Isid received. Vlan: %X Isid: %X%X%X", 
 							isid_vlan_map->isid_vlan_data.vlan,
 							isid_vlan_map->isid_vlan_data.isid[0],
 							isid_vlan_map->isid_vlan_data.isid[1],
