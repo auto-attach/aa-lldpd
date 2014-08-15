@@ -353,9 +353,9 @@ MARSHAL_BEGIN(lldpd_config)
 MARSHAL_STR(lldpd_config, c_mgmt_pattern)
 MARSHAL_STR(lldpd_config, c_cid_pattern)
 MARSHAL_STR(lldpd_config, c_iface_pattern)
-MARSHAL_STR(lldpd_config, c_hostname)
 MARSHAL_STR(lldpd_config, c_platform)
 MARSHAL_STR(lldpd_config, c_description)
+MARSHAL_STR(lldpd_config, c_hostname)
 MARSHAL_END(lldpd_config);
 
 struct lldpd_frame {

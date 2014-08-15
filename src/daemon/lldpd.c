@@ -67,6 +67,11 @@ static struct protocol protos[] =
 	  {0,0,0,0,0,0} }
 };
 
+void lldpd_assign_cfg_to_protocols(struct lldpd *cfg)
+{
+    cfg->g_protocols = protos;
+}
+
 static char		**saved_argv;
 #ifdef HAVE___PROGNAME
 extern const char	*__progname;
@@ -144,7 +149,7 @@ lldpd_alloc_hardware(struct lldpd *cfg, char *name, int index)
 {
 	struct lldpd_hardware *hardware;
 
-	log_debug("alloc", "allocate a new local port (%s)", name);
+	log_debug("alloc", "allocate a new local hardware interface (%s)", name);
 
 	if ((hardware = (struct lldpd_hardware *)
 		calloc(1, sizeof(struct lldpd_hardware))) == NULL)
@@ -217,8 +222,8 @@ lldpd_hardware_cleanup(struct lldpd *cfg, struct lldpd_hardware *hardware)
 static void
 lldpd_display_neighbors(struct lldpd *cfg)
 {
-	if (!cfg->g_config.c_set_ifdescr) return;
 	struct lldpd_hardware *hardware;
+	if (!cfg->g_config.c_set_ifdescr) return;
 	TAILQ_FOREACH(hardware, &cfg->g_hardware, h_entries) {
 		struct lldpd_port *port;
 		char *description;
@@ -298,7 +303,7 @@ lldpd_reset_timer(struct lldpd *cfg)
 		struct lldpd_port *port = &hardware->h_lport;
 		u_int16_t cksum;
 		u_int8_t *output = NULL;
-		size_t output_len;
+		size_t output_len = 0;
 		char save[offsetof(struct lldpd_port, p_id_subtype)];
 		memcpy(save, port, sizeof(save));
 		/* coverity[suspicious_sizeof]
@@ -437,16 +442,17 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	struct lldpd_chassis *chassis, *ochassis = NULL;
 	struct lldpd_port *port, *oport = NULL, *aport;
 	int guess = LLDPD_MODE_LLDP;
+        struct ether_header eheader;
+	int count = 0;
 
-	log_debug("decode", "decode a received frame on %s",
-	    hardware->h_ifname);
+	log_debug("decode", "decode a received frame on %s size %d",
+	    hardware->h_ifname, s);
 
 	if (s < sizeof(struct ether_header) + 4)
 		/* Too short, just discard it */
 		return;
 
 	/* Decapsulate VLAN frames */
-	struct ether_header eheader;
 	memcpy(&eheader, frame, sizeof(struct ether_header));
 	if (eheader.ether_type == htons(ETHERTYPE_VLAN)) {
 		/* VLAN decapsulation means to shift 4 bytes left the frame from
@@ -454,6 +460,23 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 		memmove(frame + 2*ETHER_ADDR_LEN, frame + 2*ETHER_ADDR_LEN + 4, s - 2*ETHER_ADDR_LEN);
 		s -= 4;
 	}
+
+	log_debug("decode", "Received frame ether header: dst:0x%.2x%.2x%.2x%.2x%.2x%.2x src:0x%.2x%.2x%.2x%.2x%.2x%.2x type:0x%.4x ",
+          eheader.ether_dhost[0], 
+          eheader.ether_dhost[1], 
+          eheader.ether_dhost[2], 
+          eheader.ether_dhost[3], 
+          eheader.ether_dhost[4], 
+          eheader.ether_dhost[5], 
+
+          eheader.ether_shost[0], 
+          eheader.ether_shost[1], 
+          eheader.ether_shost[2], 
+          eheader.ether_shost[3], 
+          eheader.ether_shost[4], 
+          eheader.ether_shost[5], 
+
+          ntohs(eheader.ether_type));
 
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
 		if ((oport->p_lastframe != NULL) &&
@@ -467,6 +490,8 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	}
 
 	guess = lldpd_guess_type(cfg, frame, s);
+	log_debug("decode", "guessed %d         enabled:%d",guess,cfg->g_protocols[0].enabled);
+
 	for (i=0; cfg->g_protocols[i].mode != 0; i++) {
 		if (!cfg->g_protocols[i].enabled)
 			continue;
@@ -483,6 +508,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 			    cfg->g_protocols[i].mode;
 			break;
 			}
+	  log_debug("decode", " %d mode:%d enabled:%d",i,cfg->g_protocols[i].mode,cfg->g_protocols[i].enabled);
 	}
 	if (cfg->g_protocols[i].mode == 0) {
 		log_debug("decode", "unable to guess frame type on %s",
@@ -496,7 +522,6 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 		    port->p_descr));
 
 	/* Do we already have the same MSAP somewhere? */
-	int count = 0;
 	log_debug("decode", "search for the same MSAP");
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
 		if (port->p_protocol == oport->p_protocol) {
@@ -632,6 +657,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	}
 #endif
 
+        log_debug("decode","%s: end of function.",__FUNCTION__);
 	return;
 }
 
@@ -639,7 +665,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
    called once. It return NULL if any problem happens. Otherwise, this is a
    statically allocated buffer. The result includes the trailing \n  */
 static char *
-lldpd_get_lsb_release() {
+lldpd_get_lsb_release(void) {
 	static char release[1024];
 	char *const command[] = { "lsb_release", "-s", "-d", NULL };
 	int pid, status, devnull, count;
@@ -712,7 +738,7 @@ lldpd_get_lsb_release() {
 
 /* Same like lldpd_get_lsb_release but reads /etc/os-release for PRETTY_NAME=. */
 static char *
-lldpd_get_os_release() {
+lldpd_get_os_release(void) {
 	static char release[1024];
 	char line[1024];
 	char *key, *val;
@@ -884,8 +910,8 @@ lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, int fd)
 		return;
 	}
 	hardware->h_rx_cnt++;
-	log_debug("receive", "decode received frame on %s",
-	    hardware->h_ifname);
+	log_debug("receive", "decode received frame on %s h_rx_cnt=%10lld",
+	    hardware->h_ifname,hardware->h_rx_cnt);
 	TRACE(LLDPD_FRAME_RECEIVED(hardware->h_ifname, buffer, (size_t)n));
 	lldpd_decode(cfg, buffer, n, hardware);
 	lldpd_hide_all(cfg); /* Immediatly hide */
@@ -904,7 +930,6 @@ lldpd_send(struct lldpd_hardware *hardware)
 	if ((hardware->h_flags & IFF_RUNNING) == 0)
 		return;
 
-	log_debug("send", "send PDU on %s", hardware->h_ifname);
 	sent = 0;
 	for (i=0; cfg->g_protocols[i].mode != 0; i++) {
 		if (!cfg->g_protocols[i].enabled)
@@ -1202,7 +1227,7 @@ static const struct intint filters[] = {
  * Tell if we have been started by upstart.
  */
 static int
-lldpd_started_by_upstart()
+lldpd_started_by_upstart(void)
 {
 #ifdef HOST_OS_LINUX
 	const char *upstartjob = getenv("UPSTART_JOB");
@@ -1221,7 +1246,7 @@ lldpd_started_by_upstart()
  * Tell if we have been started by systemd.
  */
 static int
-lldpd_started_by_systemd()
+lldpd_started_by_systemd(void)
 {
 #ifdef HOST_OS_LINUX
 	int fd = -1;
@@ -1271,7 +1296,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 {
 	struct lldpd *cfg;
 	struct lldpd_chassis *lchassis;
-	int ch, debug = 0;
+	int ch, debug = 3;
 #ifdef USE_SNMP
 	int snmp = 0;
 	char *agentx = NULL;	/* AgentX socket */
@@ -1296,7 +1321,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	const char *lldpcli = LLDPCLI_PATH;
 	int smart = 15;
 	int receiveonly = 0;
-	int ctl;
+	int ctl = 0;
 
 	/* Non privileged user */
 	struct passwd *user;

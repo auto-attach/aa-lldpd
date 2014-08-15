@@ -22,6 +22,10 @@
 #  include <config.h>
 #endif
 
+#if HAVE_LLDP
+#define ETHERTYPE_LLDP 0x88cc
+#endif
+
 #ifdef HAVE_VALGRIND_VALGRIND_H
 # include <valgrind/valgrind.h>
 #else

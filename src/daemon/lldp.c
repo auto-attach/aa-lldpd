@@ -83,8 +83,8 @@ lldp_send(struct lldpd *global,
 	u_int8_t msg_auth_digest[LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH];
 #endif
 
-	log_debug("lldp", "send LLDP PDU to %s",
-	    hardware->h_ifname);
+	log_debug("lldp", "send LLDP PDU to %s mtu=%d",
+	    hardware->h_ifname,hardware->h_mtu);
 
 	port = &hardware->h_lport;
 	chassis = port->p_chassis;
@@ -444,10 +444,10 @@ lldp_send(struct lldpd *global,
 	    fa_element_second_byte = port->p_element.mgmt_vlan & 0x0FF;
 	    // .conn_type should be 4 most sig. bits, so bitwise OR that 
 	    // with the first 4 bits of the 12-bit-wide .smlt_id
-	    fa_elem_sys_id_first_byte = ((port->p_element.conn_type & 0xF) << 4) | 
-		((port->p_element.smlt_id >> 8) & 0xF);
+	    fa_elem_sys_id_first_byte = ((port->p_element.system_id.conn_type & 0xF) << 4) | 
+		((port->p_element.system_id.smlt_id >> 8) & 0xF);
 	    // second byte should just be the remaining 8 bits of .smlt_id
-	    fa_elem_sys_id_second_byte = port->p_element.smlt_id & 0x0FF;
+	    fa_elem_sys_id_second_byte = port->p_element.system_id.smlt_id & 0x0FF;
 
 		if (!(
 		    POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
@@ -455,12 +455,12 @@ lldp_send(struct lldpd *global,
 		    POKE_UINT8(LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE) &&
 		    POKE_UINT8(fa_element_first_byte) &&
 		    POKE_UINT8(fa_element_second_byte) &&
-		    POKE_BYTES(&port->p_element.system_mac,
-			sizeof(port->p_element.system_mac)) &&
+		    POKE_BYTES(&port->p_element.system_id.system_mac,
+			sizeof(port->p_element.system_id.system_mac)) &&
 		    POKE_UINT8(fa_elem_sys_id_first_byte) &&
 		    POKE_UINT8(fa_elem_sys_id_second_byte) &&
-		    POKE_BYTES(&port->p_element.mlt_id, 
-			sizeof(port->p_element.mlt_id)) &&
+		    POKE_BYTES(&port->p_element.system_id.mlt_id, 
+			sizeof(port->p_element.system_id.mlt_id)) &&
 		    POKE_END_LLDP_TLV))
 			goto toobig;
 	}
@@ -515,6 +515,7 @@ lldp_send(struct lldpd *global,
 	if ((frame = (struct lldpd_frame*)malloc(
 			sizeof(int) + pos - packet)) != NULL) {
 		frame->size = pos - packet;
+                length = frame->size;
 		memcpy(&frame->frame, packet, frame->size);
 		if ((hardware->h_lport.p_lastframe == NULL) ||
 		    (hardware->h_lport.p_lastframe->size != frame->size) ||
@@ -567,7 +568,6 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	struct lldpd_pi *pi = NULL;
 #endif
 #ifdef ENABLE_AVAYA_FA
-	struct lldpd_avaya_element_tlv *p_element = NULL;
 	struct lldpd_avaya_isid_vlan_maps_tlv *isid_vlan_map = NULL;
 	u_int8_t msg_auth_digest[LLDP_TLV_AVAYA_FA_ISID_VLAN_DIGEST_LENGTH];
 #endif
@@ -1086,16 +1086,9 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 
 				switch(tlv_subtype) {
 				case LLDP_TLV_AVAYA_FA_ELEMENT_SUBTYPE:
-					if ((p_element = (struct lldpd_avaya_element_tlv *) 
-					  calloc(1, sizeof(struct lldpd_avaya_element_tlv)))
-					  == NULL ) {
-						log_warnx("lldp", "unable to allocate memory "
-						"for avaya_element_tlv struct");
-						goto malformed;
-					}
 					fa_element_word = PEEK_UINT16;
 					/* type is first 4 most-significant bits */
-					p_element->type = fa_element_word >> 12;
+					port->p_element.type = fa_element_word >> 12;
 					/* mgmt_vlan is last 12 bits */
 					port->p_element.mgmt_vlan = fa_element_word & 0x0FFF;
 					log_info("fabric", "Element type: %X, Mgmt vlan: %X", 
