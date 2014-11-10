@@ -1,4 +1,4 @@
-lldpd
+aa-lldpd
 =====
 
-LLDP implementation provided with the Auto Attach SDK 
+LLDP implementation provided with the Auto Attach SDK
