@@ -175,7 +175,9 @@ lldpd_alloc_hardware(struct lldpd *cfg, char *name, int index)
 	TAILQ_INIT(&hardware->h_lport.p_pids);
 #endif
 
+#ifndef AA_SDK_INTEGRATION 
 	levent_hardware_init(hardware);
+#endif
 	return hardware;
 }
 
@@ -213,9 +215,11 @@ lldpd_hardware_cleanup(struct lldpd *cfg, struct lldpd_hardware *hardware)
 	log_debug("alloc", "cleanup hardware port %s", hardware->h_ifname);
 
 	lldpd_port_cleanup(&hardware->h_lport, 1);
-	if (hardware->h_ops->cleanup)
+	if (hardware->h_ops && hardware->h_ops->cleanup)
 		hardware->h_ops->cleanup(cfg, hardware);
+#ifndef AA_SDK_INTEGRATION 
 	levent_hardware_release(hardware);
+#endif
 	free(hardware);
 }
 
@@ -235,19 +239,32 @@ lldpd_display_neighbors(struct lldpd *cfg)
 			neighbor = port->p_chassis->c_name;
 		}
 		if (neighbors == 0)
+#ifdef AA_SDK_INTEGRATION
+// TBD: AN - need replacement for priv_iface_description
+                        ;
+#else
 			priv_iface_description(hardware->h_ifname,
 			    "");
+#endif
 		else if (neighbors == 1 && neighbor && *neighbor != '\0') {
 			if (asprintf(&description, "%s",
 				neighbor) != -1) {
+#ifdef AA_SDK_INTEGRATION
+// TBD: AN - need replacement for priv_iface_description
+#else
 				priv_iface_description(hardware->h_ifname, description);
+#endif
 				free(description);
 			}
 		} else {
 			if (asprintf(&description, "%d neighbor%s",
 				neighbors, (neighbors > 1)?"s":"") != -1) {
+#ifdef AA_SDK_INTEGRATION
+// TBD: AN - need replacement for priv_iface_description
+#else
 				priv_iface_description(hardware->h_ifname,
 				    description);
+#endif
 				free(description);
 			}
 		}
@@ -281,11 +298,17 @@ static void
 notify_clients_deletion(struct lldpd_hardware *hardware,
     struct lldpd_port *rport)
 {
+/*...TBD can't find the definition for LLDPD_NEIGHBOR_DELETE, removing for now */
+#ifndef AA_SDK_INTEGRATION 
 	TRACE(LLDPD_NEIGHBOR_DELETE(hardware->h_ifname,
 		rport->p_chassis->c_name,
 		rport->p_descr));
 	levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_DELETED,
 	    rport);
+#else
+// TBD: AN - check this
+#endif
+
 #ifdef USE_SNMP
 	agent_notify(hardware, NEIGHBOR_CHANGE_DELETED, rport);
 #endif
@@ -303,13 +326,17 @@ lldpd_reset_timer(struct lldpd *cfg)
 		struct lldpd_port *port = &hardware->h_lport;
 		u_int16_t cksum;
 		u_int8_t *output = NULL;
-		size_t output_len = 0;
+		size_t output_len=0;
 		char save[offsetof(struct lldpd_port, p_id_subtype)];
 		memcpy(save, port, sizeof(save));
 		/* coverity[suspicious_sizeof]
 		   We intentionally partially memset port */
 		memset(port, 0, sizeof(save));
+#ifndef AA_SDK_INTEGRATION 
 		output_len = lldpd_port_serialize(port, (void**)&output);
+#else
+// TBD: AN - need to find where lldpd_port_serialize comes from
+#endif
 		memcpy(port, save, sizeof(save));
 		if (output_len == -1) {
 			log_warnx("localchassis",
@@ -324,7 +351,9 @@ lldpd_reset_timer(struct lldpd *cfg)
 			    "change detected for port %s, resetting its timer",
 			    hardware->h_ifname);
 			hardware->h_lport_cksum = cksum;
+#ifndef AA_SDK_INTEGRATION 
 			levent_schedule_pdu(hardware);
+#endif
 		} else {
 			log_debug("localchassis",
 			    "no change detected for port %s",
@@ -345,7 +374,10 @@ lldpd_cleanup(struct lldpd *cfg)
 	     hardware = hardware_next) {
 		hardware_next = TAILQ_NEXT(hardware, h_entries);
 		if (!hardware->h_flags) {
+#ifndef AA_SDK_INTEGRATION 
+/*...TBD can't find the definition for LLDPD_INTERFACES_DELETE, removing for now */
 			TRACE(LLDPD_INTERFACES_DELETE(hardware->h_ifname));
+#endif
 			TAILQ_REMOVE(&cfg->g_hardware, hardware, h_entries);
 			lldpd_remote_cleanup(hardware, notify_clients_deletion, 1);
 			lldpd_hardware_cleanup(cfg, hardware);
@@ -365,7 +397,9 @@ lldpd_cleanup(struct lldpd *cfg)
 	}
 
 	lldpd_count_neighbors(cfg);
+#ifndef AA_SDK_INTEGRATION 
 	levent_schedule_cleanup(cfg);
+#endif
 }
 
 /* Update chassis `ochassis' with values from `chassis'. The later one is not
@@ -442,11 +476,11 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	struct lldpd_chassis *chassis, *ochassis = NULL;
 	struct lldpd_port *port, *oport = NULL, *aport;
 	int guess = LLDPD_MODE_LLDP;
-        struct ether_header eheader;
+	struct ether_header eheader;
 	int count = 0;
 
 	log_debug("decode", "decode a received frame on %s size %d",
-	    hardware->h_ifname, s);
+	    hardware->h_ifname,s);
 
 	if (s < sizeof(struct ether_header) + 4)
 		/* Too short, just discard it */
@@ -481,6 +515,9 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
 		if ((oport->p_lastframe != NULL) &&
 		    (oport->p_lastframe->size == s) &&
+#ifdef AA_SDK_INTEGRATION
+                    (!hardware->h_aa_notify) &&
+#endif
 		    (memcmp(oport->p_lastframe->frame, frame, s) == 0)) {
 			/* Already received the same frame */
 			log_debug("decode", "duplicate frame, no need to decode");
@@ -515,12 +552,13 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 		    hardware->h_ifname);
 		return;
 	}
+#ifndef AA_SDK_INTEGRATION
 	TRACE(LLDPD_FRAME_DECODED(
 		    hardware->h_ifname,
 		    cfg->g_protocols[i].name,
 		    chassis->c_name,
 		    port->p_descr));
-
+#endif
 	/* Do we already have the same MSAP somewhere? */
 	log_debug("decode", "search for the same MSAP");
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
@@ -624,20 +662,30 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	log_debug("decode", "send notifications for changes on %s",
 	    hardware->h_ifname);
 	if (oport) {
+#ifndef AA_SDK_INTEGRATION 
 		TRACE(LLDPD_NEIGHBOR_UPDATE(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
+#endif
+                // TBD: AN - NEIGHBOR_CHANGE_UPDATED event should be handled?
+#ifndef AA_SDK_INTEGRATION
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_UPDATED, port);
+#endif
 #ifdef USE_SNMP
 		agent_notify(hardware, NEIGHBOR_CHANGE_UPDATED, port);
 #endif
 	} else {
+#ifndef AA_SDK_INTEGRATION 
 		TRACE(LLDPD_NEIGHBOR_NEW(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
+#endif
+                // TBD: AN - NEIGHBOR_CHANGE_ADDED event should be handled?
+#ifndef AA_SDK_INTEGRATION
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_ADDED, port);
+#endif
 #ifdef USE_SNMP
 		agent_notify(hardware, NEIGHBOR_CHANGE_ADDED, port);
 #endif
@@ -655,6 +703,39 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 
 		levent_schedule_pdu(hardware);
 	}
+#endif
+
+#if 0
+        if (cfg->g_aa_global_enabled && hardware->h_aa_enabled) {
+            int aasdki_disc_data_set(uint32_t port_id, int elem_type, 
+                                     uint16_t mgmt_vlan, uint8_t *sys_id);
+            /* local port that frame was received on */
+            if (aasdki_disc_data_set(hardware->h_ifindex, 
+                                      port->p_element.type, 
+                                      port->p_element.mgmt_vlan, 
+                                      (uint8_t *)&port->p_element.system_id)) {
+                log_warn("decode","%s: aasdki_disc_data_set failed!",__FUNCTION__);
+                return;
+            }
+            log_info("decode",
+                     "%s: aasdki_disc_data_set port_id=%d elem.type=%d elem.vlan=%d %d<<<<<<<<<<<",
+                     __FUNCTION__, 
+                     hardware->h_ifindex, 
+                     port->p_element.type, 
+                     port->p_element.mgmt_vlan,
+                     hardware->h_aa_notify);
+            hardware->h_aa_notify = false;
+#ifdef AA_SDK_LATER
+//            struct lldpd_aa_isid_vlan_map_data *asgn = NULL;
+            /* loop thru the isid/vlan assignments */
+            TAILQ_FOREACH(asgn, &port->p_isid_vlan_maps, m_entries) {
+                if ((aasdki_asng_data_set(port->p_id, asgn->status, asgn->isid, asgn->vlan)) != AA_SDK_ENONE) {
+                    log_debug("decode","%s: aasdki_asng_data_set failed!",__FUNCTION__);
+                    return;
+                }
+            }
+#endif
+        }
 #endif
 
         log_debug("decode","%s: end of function.",__FUNCTION__);
@@ -884,13 +965,24 @@ lldpd_hide_all(struct lldpd *cfg)
 	}
 }
 
+// TBD: AN - fd is unused since we don't go to hw to recv in OVS world
 void
+#ifndef AA_SDK_INTEGRATION 
 lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, int fd)
+#else
+lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, char *buffer, size_t bufSize)
+#endif
 {
-	char *buffer = NULL;
-	int n;
+#ifndef AA_SDK_INTEGRATION 
+	char *buffer = NULL;    
+#endif
+	int n=0;
+#ifdef AA_SDK_INTEGRATION
+        n=bufSize;
+#endif
 	log_debug("receive", "receive a frame on %s",
 	    hardware->h_ifname);
+#ifndef AA_SDK_INTEGRATION 
 	if ((buffer = (char *)malloc(hardware->h_mtu)) == NULL) {
 		log_warn("receive", "failed to alloc reception buffer");
 		return;
@@ -903,33 +995,55 @@ lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, int fd)
 		free(buffer);
 		return;
 	}
+#endif
 	if (cfg->g_config.c_paused) {
 		log_debug("receive", "paused, ignore the frame on %s",
 			hardware->h_ifname);
+#ifndef AA_SDK_INTEGRATION 
 		free(buffer);
+#endif
 		return;
 	}
 	hardware->h_rx_cnt++;
 	log_debug("receive", "decode received frame on %s h_rx_cnt=%10lld",
 	    hardware->h_ifname,hardware->h_rx_cnt);
+#ifndef AA_SDK_INTEGRATION
 	TRACE(LLDPD_FRAME_RECEIVED(hardware->h_ifname, buffer, (size_t)n));
+#endif
 	lldpd_decode(cfg, buffer, n, hardware);
 	lldpd_hide_all(cfg); /* Immediatly hide */
 	lldpd_count_neighbors(cfg);
+#ifndef AA_SDK_INTEGRATION 
 	free(buffer);
+#endif
 }
 
+#ifndef AA_SDK_INTEGRATION
 void
 lldpd_send(struct lldpd_hardware *hardware)
+#else
+uint32_t 
+lldpd_send(struct lldpd_hardware *hardware, char *p)
+#endif
 {
 	struct lldpd *cfg = hardware->h_cfg;
 	struct lldpd_port *port;
 	int i, sent;
+#ifdef AA_SDK_INTEGRATION
+        int lldp_size=0;
+#endif
 
+#ifdef AA_SDK_INTEGRATION
+	if (cfg->g_config.c_receiveonly || cfg->g_config.c_paused) return lldp_size;
+#else
 	if (cfg->g_config.c_receiveonly || cfg->g_config.c_paused) return;
+#endif
 	if ((hardware->h_flags & IFF_RUNNING) == 0)
+#ifdef AA_SDK_INTEGRATION
+                return lldp_size;
+#else
 		return;
-
+#endif
 	sent = 0;
 	for (i=0; cfg->g_protocols[i].mode != 0; i++) {
 		if (!cfg->g_protocols[i].enabled)
@@ -937,9 +1051,23 @@ lldpd_send(struct lldpd_hardware *hardware)
 		/* We send only if we have at least one remote system
 		 * speaking this protocol or if the protocol is forced */
 		if (cfg->g_protocols[i].enabled > 1) {
+#ifndef AA_SDK_INTEGRATION
 			cfg->g_protocols[i].send(cfg, hardware);
 			sent++;
 			continue;
+#else
+			if ( (lldp_size = cfg->g_protocols[i].send(cfg, hardware,p)) != E2BIG)
+                        {
+			  sent++;
+                          continue;
+                        }
+                        else
+                        {
+	                  log_debug("send", "send PDU on %s failed E2BIG", 
+                                    hardware->h_ifname);
+                          continue;
+                        }
+#endif
 		}
 		TAILQ_FOREACH(port, &hardware->h_rports, p_entries) {
 			/* If this remote port is disabled, we don't
@@ -948,13 +1076,20 @@ lldpd_send(struct lldpd_hardware *hardware)
 				continue;
 			if (port->p_protocol ==
 			    cfg->g_protocols[i].mode) {
+#ifndef AA_SDK_INTEGRATION
 				TRACE(LLDPD_FRAME_SEND(hardware->h_ifname,
 					cfg->g_protocols[i].name));
+#endif
 				log_debug("send", "send PDU on %s with protocol %s",
 				    hardware->h_ifname,
 				    cfg->g_protocols[i].name);
+#ifndef AA_SDK_INTEGRATION
 				cfg->g_protocols[i].send(cfg,
 				    hardware);
+#else
+				lldp_size = cfg->g_protocols[i].send(cfg,
+				    hardware,p);
+#endif
 				sent++;
 				break;
 			}
@@ -966,17 +1101,26 @@ lldpd_send(struct lldpd_hardware *hardware)
 		 * available protocol. */
 		for (i = 0; cfg->g_protocols[i].mode != 0; i++) {
 			if (!cfg->g_protocols[i].enabled) continue;
+#ifndef AA_SDK_INTEGRATION
 			TRACE(LLDPD_FRAME_SEND(hardware->h_ifname,
 				cfg->g_protocols[i].name));
+#endif
 			log_debug("send", "fallback to protocol %s for %s",
 			    cfg->g_protocols[i].name, hardware->h_ifname);
-			cfg->g_protocols[i].send(cfg,
-			    hardware);
+#ifndef AA_SDK_INTEGRATION
+			cfg->g_protocols[i].send(cfg, hardware);
+#else
+			lldp_size = cfg->g_protocols[i].send(cfg,
+			    hardware,p);
+#endif
 			break;
 		}
 		if (cfg->g_protocols[i].mode == 0)
 			log_warnx("send", "no protocol enabled, dunno what to send");
 	}
+#ifdef AA_SDK_INTEGRATION
+  return lldp_size;
+#endif
 }
 
 #ifdef ENABLE_LLDPMED
@@ -1000,10 +1144,14 @@ static int
 lldpd_routing_enabled(struct lldpd *cfg)
 {
 	int routing;
+#ifndef AA_SDK_INTEGRATION
 	if ((routing = interfaces_routing_enabled(cfg)) == -1) {
 		log_debug("localchassis", "unable to check if routing is enabled");
 		return 0;
 	}
+#else
+        routing=1; // TBD: AN - need to see what effect this has
+#endif
 	return routing;
 }
 
@@ -1023,7 +1171,11 @@ lldpd_update_localchassis(struct lldpd *cfg)
 		log_debug("localchassis", "use overridden system name `%s`", cfg->g_config.c_hostname);
 		hp = cfg->g_config.c_hostname;
 	} else {
+#ifdef AA_SDK_INTEGRATION
+		if ((hp = gethostbyname()) == NULL) // TBD: AN - gethostbyname is not thread-safe
+#else
 		if ((hp = priv_gethostbyname()) == NULL)
+#endif
 			fatal("localchassis", "failed to get system name");
 	}
 	free(LOCAL_CHASSIS(cfg)->c_name);
@@ -1097,8 +1249,10 @@ lldpd_update_localports(struct lldpd *cfg)
 	TAILQ_FOREACH(hardware, &cfg->g_hardware, h_entries)
 	    hardware->h_flags = 0;
 
+#ifndef AA_SDK_INTEGRATION 
 	TRACE(LLDPD_INTERFACES_UPDATE());
 	interfaces_update(cfg);
+#endif
 	lldpd_cleanup(cfg);
 	lldpd_reset_timer(cfg);
 }
@@ -1122,6 +1276,7 @@ lldpd_loop(struct lldpd *cfg)
 	lldpd_count_neighbors(cfg);
 }
 
+#ifndef AA_SDK_INTEGRATION 
 static void
 lldpd_exit(struct lldpd *cfg)
 {
@@ -1138,7 +1293,9 @@ lldpd_exit(struct lldpd *cfg)
 		lldpd_hardware_cleanup(cfg, hardware);
 	}
 }
+#endif
 
+#ifndef AA_SDK_INTEGRATION 
 /**
  * Run lldpcli to configure lldpd.
  *
@@ -1185,6 +1342,7 @@ lldpd_configure(int debug, const char *path, const char *ctlname)
 	/* Should not be here */
 	return -1;
 }
+#endif
 
 struct intint { int a; int b; };
 static const struct intint filters[] = {
@@ -1291,6 +1449,7 @@ lldpd_started_by_systemd(void)
 }
 #endif
 
+#ifndef AA_SDK_INTEGRATION
 int
 lldpd_main(int argc, char *argv[], char *envp[])
 {
@@ -1321,13 +1480,15 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	const char *lldpcli = LLDPCLI_PATH;
 	int smart = 15;
 	int receiveonly = 0;
-	int ctl = 0;
+	int ctl=0;
 
+#ifndef AA_SDK_INTEGRATION
 	/* Non privileged user */
 	struct passwd *user;
 	struct group *group;
 	uid_t uid;
 	gid_t gid;
+#endif
 
 	saved_argv = argv;
 
@@ -1446,12 +1607,12 @@ lldpd_main(int argc, char *argv[], char *envp[])
 		usage();
 	}
 	smart = filters[i].b;
-
 	log_init(debug, __progname);
 	tzset();		/* Get timezone info before chroot */
 
 	log_debug("main", "lldpd starting...");
 
+#ifndef AA_SDK_INTEGRATION
 	/* Grab uid and gid to use for priv sep */
 	if ((user = getpwnam(PRIVSEP_USER)) == NULL)
 		fatal("main", "no " PRIVSEP_USER " user for privilege separation");
@@ -1505,6 +1666,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 		if (lldpd_configure(debug, lldpcli, ctlname) == -1)
 			fatal("main", "unable to spawn lldpcli");
 	}
+#endif //AA_SDK_INTEGRATION
 
 	/* Daemonization, unless started by upstart, systemd or launchd or debug */
 #ifndef HOST_OS_OSX
@@ -1536,7 +1698,9 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	}
 
 	log_debug("main", "initialize privilege separation");
+#ifndef AA_SDK_INTEGRATION 
 	priv_init(PRIVSEP_CHROOT, ctl, uid, gid);
+#endif
 
 	/* Initialization of global configuration */
 	if ((cfg = (struct lldpd *)
@@ -1653,3 +1817,4 @@ lldpd_main(int argc, char *argv[], char *envp[])
 
 	return (0);
 }
+#endif

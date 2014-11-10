@@ -42,10 +42,8 @@
 #include "marshal.h"
 #include "lldp-const.h"
 
-
-/* Add definitions for Avaya tlv structures */
-#ifdef ENABLE_AVAYA_FA
-#include "avaya-structs.h"
+#ifdef ENABLE_AA
+#include "aa-structs.h"
 #endif
 
 #ifdef ENABLE_DOT1
@@ -259,9 +257,9 @@ struct lldpd_port {
 	TAILQ_HEAD(, lldpd_ppvid) p_ppvids;
 	TAILQ_HEAD(, lldpd_pi)	  p_pids;
 #endif
-#ifdef ENABLE_AVAYA_FA
-	struct lldpd_avaya_element_tlv p_element;
-	TAILQ_HEAD(, lldpd_avaya_isid_vlan_maps_tlv)	p_isid_vlan_maps; 
+#ifdef ENABLE_AA
+	struct lldpd_aa_element_tlv p_element;
+	TAILQ_HEAD(, lldpd_aa_isid_vlan_maps_tlv)	p_isid_vlan_maps; 
 #endif
 };
 MARSHAL_BEGIN(lldpd_port)
@@ -414,6 +412,10 @@ struct lldpd_hardware {
 
 #ifdef ENABLE_LLDPMED
 	int			h_tx_fast; /* current tx fast start count */
+#endif
+#ifdef AA_SDK_INTEGRATION
+	int                     h_aa_enabled; /* AA enabled */
+        int                     h_aa_notify;  /* set when AA goes from disabled to enabled */
 #endif
 };
 MARSHAL_BEGIN(lldpd_hardware)

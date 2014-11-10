@@ -15,8 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _LLDP_H
-#define _LLDP_H
+#ifndef _LLDP_CONST_H
+#define _LLDP_CONST_H
 
 /* Definitions prefixed by `LLDP_` are constants from LLDP
  * specifications. Definitions prefixed by `LLDPD_` are custom
@@ -226,4 +226,4 @@
 #define LLDP_BOND_SLAVE_SRC_MAC_TYPE_LOCALLY_ADMINISTERED 4
 #define LLDP_BOND_SLAVE_SRC_MAC_TYPE_MAX LLDP_BOND_SLAVE_SRC_MAC_TYPE_LOCALLY_ADMINISTERED
 
-#endif /* _LLDP_H */
+#endif /* _LLDP_CONST_H */

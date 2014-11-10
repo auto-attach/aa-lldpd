@@ -1,5 +1,5 @@
-/* avaya-structs.h */
-/* contains tlv structures for various fabric attach functionality */
+/* aa-structs.h */
+/* contains tlv structures for various auto attach functionality */
 
 /* Copyright (c) 2014 Avaya
  *
@@ -16,27 +16,27 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-struct lldp_avaya_element_system_id {
+struct lldp_aa_element_system_id {
     u_int8_t       system_mac[6];
     unsigned short conn_type:4;
     unsigned short smlt_id:12;
     u_int8_t       mlt_id[2];
 };
 
-struct lldpd_avaya_element_tlv { 
+struct lldpd_aa_element_tlv { 
     unsigned short                      type:4;
     unsigned short                      mgmt_vlan:12;
-    struct lldp_avaya_element_system_id system_id;
+    struct lldp_aa_element_system_id system_id;
 };
 
-struct lldpd_avaya_isid_vlan_map_data {
+struct lldpd_aa_isid_vlan_map_data {
     unsigned short status:4;
     unsigned short vlan:12;
     u_int8_t       isid[3];
 };
 
-struct lldpd_avaya_isid_vlan_maps_tlv { 
-	TAILQ_ENTRY(lldpd_avaya_isid_vlan_maps_tlv) 	m_entries;
+struct lldpd_aa_isid_vlan_maps_tlv { 
+	TAILQ_ENTRY(lldpd_aa_isid_vlan_maps_tlv) 	m_entries;
 
-	struct 						lldpd_avaya_isid_vlan_map_data isid_vlan_data;
+	struct 						lldpd_aa_isid_vlan_map_data isid_vlan_data;
 };

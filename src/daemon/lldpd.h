@@ -23,6 +23,7 @@
 #endif
 
 #if HAVE_LLDP
+#define AA_SDK_INTEGRATION 1
 #define ETHERTYPE_LLDP 0x88cc
 #endif
 
@@ -40,6 +41,16 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <sys/un.h>
+
+#ifdef AA_SDK_INTEGRATION
+/*#include "strlcpy.h" */ /*...TBD commented out for now */
+#define SYSCONFDIR ""
+#define LLDPD_CTL_SOCKET ""
+#define LLDPCLI_PATH ""
+#define PRIVSEP_USER ""
+#define PRIVSEP_GROUP ""
+#define PRIVSEP_CHROOT ""
+#endif // AA_SDK_INTEGRATION
 
 #if HAVE_VFORK_H
 # include <vfork.h>
@@ -59,11 +70,14 @@
 #  include "edp.h"
 #endif
 
+#ifndef AA_SDK_INTEGRATION 
 #include "../compat/compat.h"
-#include "../marshal.h"
-#include "../log.h"
 #include "../ctl.h"
+#endif // AA_SDK_INTEGRATION 
+#include "../log.h"
+#include "../marshal.h"
 #include "../lldpd-structs.h"
+
 
 /* We don't want to import event2/event.h. We only need those as
    opaque structs. */
@@ -82,7 +96,11 @@ struct event_base;
 
 #define USING_AGENTX_SUBAGENT_MODULE 1
 
+#ifndef AA_SDK_INTEGRATION
 #define PROTO_SEND_SIG struct lldpd *, struct lldpd_hardware *
+#else
+#define PROTO_SEND_SIG struct lldpd *, struct lldpd_hardware *,u_int8_t *
+#endif
 #define PROTO_DECODE_SIG struct lldpd *, char *, int, struct lldpd_hardware *, struct lldpd_chassis **, struct lldpd_port **
 #define PROTO_GUESS_SIG char *, int
 
@@ -129,6 +147,9 @@ struct lldpd {
 
 	char			*g_lsb_release;
 
+#ifdef AA_SDK_INTEGRATION
+        int                      g_aa_global_enabled;
+#endif
 #define LOCAL_CHASSIS(cfg) ((struct lldpd_chassis *)(TAILQ_FIRST(&cfg->g_chassis)))
 	TAILQ_HEAD(, lldpd_chassis) g_chassis;
 	TAILQ_HEAD(, lldpd_hardware) g_hardware;
@@ -140,10 +161,23 @@ struct lldpd_hardware	*lldpd_get_hardware(struct lldpd *,
 struct lldpd_hardware	*lldpd_alloc_hardware(struct lldpd *, char *, int);
 void	 lldpd_hardware_cleanup(struct lldpd*, struct lldpd_hardware *);
 struct lldpd_mgmt *lldpd_alloc_mgmt(int family, void *addr, size_t addrsize, u_int32_t iface);
+#ifdef AA_SDK_INTEGRATION
+void	 lldpd_recv(struct lldpd *, struct lldpd_hardware *, char *, size_t);
+#else
 void	 lldpd_recv(struct lldpd *, struct lldpd_hardware *, int);
+#endif
+#ifndef AA_SDK_INTEGRATION
 void	 lldpd_send(struct lldpd_hardware *);
+#else
+uint32_t	 lldpd_send(struct lldpd_hardware *,char *);
+#endif
 void	 lldpd_loop(struct lldpd *);
+
+#ifdef AA_SDK_INTEGRATION
+int	 lldpd_main(int, char **);
+#else
 int	 lldpd_main(int, char **, char **);
+#endif
 void	 lldpd_update_localports(struct lldpd *);
 void	 lldpd_cleanup(struct lldpd *);
 
@@ -215,6 +249,7 @@ void		 agent_notify(struct lldpd_hardware *, int, struct lldpd_port *);
 void		 agent_priv_register_domain(void);
 #endif
 
+#ifndef AA_SDK_INTEGRATION 
 /* client.c */
 int
 client_handle_client(struct lldpd *cfg,
@@ -222,6 +257,7 @@ client_handle_client(struct lldpd *cfg,
     void *,
     enum hmsg_type type, void *buffer, size_t n,
     int*);
+#endif //AA_SDK_INTEGRATION 
 
 /* priv.c */
 void	 priv_init(const char*, int, uid_t, gid_t);
