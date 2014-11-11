@@ -582,14 +582,24 @@ malformed:
 #ifdef ENABLE_CDP
 int
 cdpv1_send(struct lldpd *global,
-    struct lldpd_hardware *hardware)
+    struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	return cdp_send(global, hardware, 1);
 }
 
 int
 cdpv2_send(struct lldpd *global,
-    struct lldpd_hardware *hardware)
+    struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	return cdp_send(global, hardware, 2);
 }
@@ -598,7 +608,12 @@ cdpv2_send(struct lldpd *global,
 #ifdef ENABLE_FDP
 int
 fdp_send(struct lldpd *global,
-    struct lldpd_hardware *hardware)
+    struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	return cdp_send(global, hardware, 0);
 }

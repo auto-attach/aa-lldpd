@@ -18,10 +18,6 @@
 #ifndef _LOG_H
 #define _LOG_H
 
-#ifdef AA_SDK_INTEGRATION
-#define log_init log_initialize   /* to avoid collision with debug_util */
-#endif
-
 /* log.c */
 void             log_init(int, const char *);
 void             log_warn(const char *, const char *, ...) __attribute__ ((format (printf, 2, 3)));

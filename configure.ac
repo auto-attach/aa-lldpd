@@ -248,11 +248,11 @@ lldp_ARG_ENABLE([fdp], [Foundry Discovery Protocol], [yes])
 lldp_ARG_ENABLE([edp], [Extreme Discovery Protocol], [yes])
 lldp_ARG_ENABLE([sonmp], [SynOptics Network Management Protocol], [yes])
 
-# LLDPMED/Dot1/Dot3/Avaya
+# LLDPMED/Dot1/Dot3/AA
 lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [yes])
 lldp_ARG_ENABLE([dot1], [Dot1 extension (VLAN stuff)], [yes])
 lldp_ARG_ENABLE([dot3], [Dot3 extension (PHY stuff)], [yes])
-lldp_ARG_ENABLE([avaya_fa],[Avaya Fabric Attach extension], [no])
+lldp_ARG_ENABLE([aa],[Auto Attach extension], [yes])
 
 # Oldies
 lldp_ARG_ENABLE([oldies], [compatibility with Linux kernel older than 2.6.18], [no])
@@ -293,7 +293,7 @@ cat <<EOF
   LLDPMED........: $enable_lldpmed
   DOT1...........: $enable_dot1
   DOT3...........: $enable_dot3
-  AVAYA_FA.......: $enable_avaya_fa
+  AA.............: $enable_aa
   XML output.....: ${with_xml-no}
   JSON output....: ${with_json-no}
   Oldies support.: $enable_oldies

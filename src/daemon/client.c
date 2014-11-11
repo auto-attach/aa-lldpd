@@ -18,6 +18,7 @@
 #include "lldpd.h"
 #include "trace.h"
 
+#ifndef ENABLE_AA
 static int
 client_handle_none(struct lldpd *cfg, enum hmsg_type *type,
     void *input, int input_len, void **output, int *subscribed)
@@ -403,3 +404,4 @@ client_handle_client(struct lldpd *cfg,
 	    type);
 	return -1;
 }
+#endif

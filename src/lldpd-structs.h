@@ -413,7 +413,7 @@ struct lldpd_hardware {
 #ifdef ENABLE_LLDPMED
 	int			h_tx_fast; /* current tx fast start count */
 #endif
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 	int                     h_aa_enabled; /* AA enabled */
         int                     h_aa_notify;  /* set when AA goes from disabled to enabled */
 #endif

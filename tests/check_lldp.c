@@ -734,9 +734,9 @@ Link Layer Discovery Protocol
 }
 END_TEST
 
-#ifdef ENABLE_AVAYA_FA
-/* Avaya tlv test */
-START_TEST (test_avaya)
+#ifdef ENABLE_AA
+/* AA tlv test */
+START_TEST (test_aa)
 {
 	int n;
 	struct lldpd_chassis *nchassis = NULL;
@@ -757,7 +757,7 @@ START_TEST (test_avaya)
 		LLDP_DOT3_LINK_AUTONEG_100BASE_TXFD;
 	hardware.h_lport.p_macphy.mau_type = LLDP_DOT3_MAU_100BASETXFD;
 	
-	/* Test avaya tlv addition */
+	/* Test AA tlv addition */
 	hardware.h_lport.p_element.type = 0xA;
 	hardware.h_lport.p_element.mgmt_vlan = 0xCDC;
 	hardware.h_lport.p_element.system_id.system_mac[0] = 0x1;
@@ -772,8 +772,8 @@ START_TEST (test_avaya)
 	hardware.h_lport.p_element.system_id.mlt_id[0] = 0xB;
 	hardware.h_lport.p_element.system_id.mlt_id[1] = 0xE;
 
-	struct lldpd_avaya_isid_vlan_maps_tlv p_map;
-	struct lldpd_avaya_isid_vlan_maps_tlv p2_map;
+	struct lldpd_aa_isid_vlan_maps_tlv p_map;
+	struct lldpd_aa_isid_vlan_maps_tlv p2_map;
 
 	p_map.isid_vlan_data.status = 0xC;
 	p2_map.isid_vlan_data.status = 0xD;
@@ -837,10 +837,10 @@ START_TEST (test_avaya)
 
 
 	if (TAILQ_EMPTY(&nport->p_isid_vlan_maps)) {
-		fail("no AVAYA FA isid->vlan maps");
+		fail("no AA isid->vlan maps");
 		return;
 	}
-	struct lldpd_avaya_isid_vlan_maps_tlv *received_map;
+	struct lldpd_aa_isid_vlan_maps_tlv *received_map;
 	received_map = TAILQ_FIRST(&nport->p_isid_vlan_maps);
 	
 	ck_assert_int_eq(p_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
@@ -891,8 +891,8 @@ lldp_suite(void)
 #ifdef ENABLE_DOT3
 	tcase_add_test(tc_send, test_send_rcv_dot3);
 #endif
-#ifdef ENABLE_AVAYA_FA
-	tcase_add_test(tc_send, test_avaya);
+#ifdef ENABLE_AA
+	tcase_add_test(tc_send, test_aa);
 #endif
 	suite_add_tcase(s, tc_send);
 

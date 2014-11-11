@@ -175,7 +175,7 @@ lldpd_alloc_hardware(struct lldpd *cfg, char *name, int index)
 	TAILQ_INIT(&hardware->h_lport.p_pids);
 #endif
 
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	levent_hardware_init(hardware);
 #endif
 	return hardware;
@@ -217,7 +217,7 @@ lldpd_hardware_cleanup(struct lldpd *cfg, struct lldpd_hardware *hardware)
 	lldpd_port_cleanup(&hardware->h_lport, 1);
 	if (hardware->h_ops && hardware->h_ops->cleanup)
 		hardware->h_ops->cleanup(cfg, hardware);
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	levent_hardware_release(hardware);
 #endif
 	free(hardware);
@@ -239,7 +239,7 @@ lldpd_display_neighbors(struct lldpd *cfg)
 			neighbor = port->p_chassis->c_name;
 		}
 		if (neighbors == 0)
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 // TBD: AN - need replacement for priv_iface_description
                         ;
 #else
@@ -249,7 +249,7 @@ lldpd_display_neighbors(struct lldpd *cfg)
 		else if (neighbors == 1 && neighbor && *neighbor != '\0') {
 			if (asprintf(&description, "%s",
 				neighbor) != -1) {
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 // TBD: AN - need replacement for priv_iface_description
 #else
 				priv_iface_description(hardware->h_ifname, description);
@@ -259,7 +259,7 @@ lldpd_display_neighbors(struct lldpd *cfg)
 		} else {
 			if (asprintf(&description, "%d neighbor%s",
 				neighbors, (neighbors > 1)?"s":"") != -1) {
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 // TBD: AN - need replacement for priv_iface_description
 #else
 				priv_iface_description(hardware->h_ifname,
@@ -299,7 +299,7 @@ notify_clients_deletion(struct lldpd_hardware *hardware,
     struct lldpd_port *rport)
 {
 /*...TBD can't find the definition for LLDPD_NEIGHBOR_DELETE, removing for now */
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	TRACE(LLDPD_NEIGHBOR_DELETE(hardware->h_ifname,
 		rport->p_chassis->c_name,
 		rport->p_descr));
@@ -332,7 +332,7 @@ lldpd_reset_timer(struct lldpd *cfg)
 		/* coverity[suspicious_sizeof]
 		   We intentionally partially memset port */
 		memset(port, 0, sizeof(save));
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 		output_len = lldpd_port_serialize(port, (void**)&output);
 #else
 // TBD: AN - need to find where lldpd_port_serialize comes from
@@ -351,7 +351,7 @@ lldpd_reset_timer(struct lldpd *cfg)
 			    "change detected for port %s, resetting its timer",
 			    hardware->h_ifname);
 			hardware->h_lport_cksum = cksum;
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 			levent_schedule_pdu(hardware);
 #endif
 		} else {
@@ -374,7 +374,7 @@ lldpd_cleanup(struct lldpd *cfg)
 	     hardware = hardware_next) {
 		hardware_next = TAILQ_NEXT(hardware, h_entries);
 		if (!hardware->h_flags) {
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 /*...TBD can't find the definition for LLDPD_INTERFACES_DELETE, removing for now */
 			TRACE(LLDPD_INTERFACES_DELETE(hardware->h_ifname));
 #endif
@@ -397,7 +397,7 @@ lldpd_cleanup(struct lldpd *cfg)
 	}
 
 	lldpd_count_neighbors(cfg);
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	levent_schedule_cleanup(cfg);
 #endif
 }
@@ -515,7 +515,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
 		if ((oport->p_lastframe != NULL) &&
 		    (oport->p_lastframe->size == s) &&
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
                     (!hardware->h_aa_notify) &&
 #endif
 		    (memcmp(oport->p_lastframe->frame, frame, s) == 0)) {
@@ -552,7 +552,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 		    hardware->h_ifname);
 		return;
 	}
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	TRACE(LLDPD_FRAME_DECODED(
 		    hardware->h_ifname,
 		    cfg->g_protocols[i].name,
@@ -662,28 +662,28 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	log_debug("decode", "send notifications for changes on %s",
 	    hardware->h_ifname);
 	if (oport) {
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 		TRACE(LLDPD_NEIGHBOR_UPDATE(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
 #endif
                 // TBD: AN - NEIGHBOR_CHANGE_UPDATED event should be handled?
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_UPDATED, port);
 #endif
 #ifdef USE_SNMP
 		agent_notify(hardware, NEIGHBOR_CHANGE_UPDATED, port);
 #endif
 	} else {
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 		TRACE(LLDPD_NEIGHBOR_NEW(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
 #endif
                 // TBD: AN - NEIGHBOR_CHANGE_ADDED event should be handled?
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_ADDED, port);
 #endif
 #ifdef USE_SNMP
@@ -705,7 +705,7 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	}
 #endif
 
-#if 0
+#if 0 //...TBD
         if (cfg->g_aa_global_enabled && hardware->h_aa_enabled) {
             int aasdki_disc_data_set(uint32_t port_id, int elem_type, 
                                      uint16_t mgmt_vlan, uint8_t *sys_id);
@@ -967,22 +967,22 @@ lldpd_hide_all(struct lldpd *cfg)
 
 // TBD: AN - fd is unused since we don't go to hw to recv in OVS world
 void
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, int fd)
 #else
 lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, char *buffer, size_t bufSize)
 #endif
 {
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	char *buffer = NULL;    
 #endif
 	int n=0;
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
         n=bufSize;
 #endif
 	log_debug("receive", "receive a frame on %s",
 	    hardware->h_ifname);
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	if ((buffer = (char *)malloc(hardware->h_mtu)) == NULL) {
 		log_warn("receive", "failed to alloc reception buffer");
 		return;
@@ -999,7 +999,7 @@ lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, char *buffer, siz
 	if (cfg->g_config.c_paused) {
 		log_debug("receive", "paused, ignore the frame on %s",
 			hardware->h_ifname);
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 		free(buffer);
 #endif
 		return;
@@ -1007,18 +1007,18 @@ lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, char *buffer, siz
 	hardware->h_rx_cnt++;
 	log_debug("receive", "decode received frame on %s h_rx_cnt=%10lld",
 	    hardware->h_ifname,hardware->h_rx_cnt);
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	TRACE(LLDPD_FRAME_RECEIVED(hardware->h_ifname, buffer, (size_t)n));
 #endif
 	lldpd_decode(cfg, buffer, n, hardware);
 	lldpd_hide_all(cfg); /* Immediatly hide */
 	lldpd_count_neighbors(cfg);
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	free(buffer);
 #endif
 }
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 void
 lldpd_send(struct lldpd_hardware *hardware)
 #else
@@ -1029,17 +1029,17 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 	struct lldpd *cfg = hardware->h_cfg;
 	struct lldpd_port *port;
 	int i, sent;
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
         int lldp_size=0;
 #endif
 
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 	if (cfg->g_config.c_receiveonly || cfg->g_config.c_paused) return lldp_size;
 #else
 	if (cfg->g_config.c_receiveonly || cfg->g_config.c_paused) return;
 #endif
 	if ((hardware->h_flags & IFF_RUNNING) == 0)
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
                 return lldp_size;
 #else
 		return;
@@ -1051,7 +1051,7 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 		/* We send only if we have at least one remote system
 		 * speaking this protocol or if the protocol is forced */
 		if (cfg->g_protocols[i].enabled > 1) {
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 			cfg->g_protocols[i].send(cfg, hardware);
 			sent++;
 			continue;
@@ -1076,14 +1076,14 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 				continue;
 			if (port->p_protocol ==
 			    cfg->g_protocols[i].mode) {
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 				TRACE(LLDPD_FRAME_SEND(hardware->h_ifname,
 					cfg->g_protocols[i].name));
 #endif
 				log_debug("send", "send PDU on %s with protocol %s",
 				    hardware->h_ifname,
 				    cfg->g_protocols[i].name);
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 				cfg->g_protocols[i].send(cfg,
 				    hardware);
 #else
@@ -1101,13 +1101,13 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 		 * available protocol. */
 		for (i = 0; cfg->g_protocols[i].mode != 0; i++) {
 			if (!cfg->g_protocols[i].enabled) continue;
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 			TRACE(LLDPD_FRAME_SEND(hardware->h_ifname,
 				cfg->g_protocols[i].name));
 #endif
 			log_debug("send", "fallback to protocol %s for %s",
 			    cfg->g_protocols[i].name, hardware->h_ifname);
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 			cfg->g_protocols[i].send(cfg, hardware);
 #else
 			lldp_size = cfg->g_protocols[i].send(cfg,
@@ -1118,7 +1118,7 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 		if (cfg->g_protocols[i].mode == 0)
 			log_warnx("send", "no protocol enabled, dunno what to send");
 	}
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
   return lldp_size;
 #endif
 }
@@ -1144,7 +1144,7 @@ static int
 lldpd_routing_enabled(struct lldpd *cfg)
 {
 	int routing;
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	if ((routing = interfaces_routing_enabled(cfg)) == -1) {
 		log_debug("localchassis", "unable to check if routing is enabled");
 		return 0;
@@ -1171,7 +1171,7 @@ lldpd_update_localchassis(struct lldpd *cfg)
 		log_debug("localchassis", "use overridden system name `%s`", cfg->g_config.c_hostname);
 		hp = cfg->g_config.c_hostname;
 	} else {
-#ifdef AA_SDK_INTEGRATION
+#ifdef ENABLE_AA
 		if ((hp = gethostbyname()) == NULL) // TBD: AN - gethostbyname is not thread-safe
 #else
 		if ((hp = priv_gethostbyname()) == NULL)
@@ -1249,7 +1249,7 @@ lldpd_update_localports(struct lldpd *cfg)
 	TAILQ_FOREACH(hardware, &cfg->g_hardware, h_entries)
 	    hardware->h_flags = 0;
 
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	TRACE(LLDPD_INTERFACES_UPDATE());
 	interfaces_update(cfg);
 #endif
@@ -1276,7 +1276,7 @@ lldpd_loop(struct lldpd *cfg)
 	lldpd_count_neighbors(cfg);
 }
 
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 static void
 lldpd_exit(struct lldpd *cfg)
 {
@@ -1295,7 +1295,7 @@ lldpd_exit(struct lldpd *cfg)
 }
 #endif
 
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 /**
  * Run lldpcli to configure lldpd.
  *
@@ -1449,7 +1449,7 @@ lldpd_started_by_systemd(void)
 }
 #endif
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 int
 lldpd_main(int argc, char *argv[], char *envp[])
 {
@@ -1482,7 +1482,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	int receiveonly = 0;
 	int ctl=0;
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	/* Non privileged user */
 	struct passwd *user;
 	struct group *group;
@@ -1612,7 +1612,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 
 	log_debug("main", "lldpd starting...");
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	/* Grab uid and gid to use for priv sep */
 	if ((user = getpwnam(PRIVSEP_USER)) == NULL)
 		fatal("main", "no " PRIVSEP_USER " user for privilege separation");
@@ -1666,7 +1666,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 		if (lldpd_configure(debug, lldpcli, ctlname) == -1)
 			fatal("main", "unable to spawn lldpcli");
 	}
-#endif //AA_SDK_INTEGRATION
+#endif //ENABLE_AA
 
 	/* Daemonization, unless started by upstart, systemd or launchd or debug */
 #ifndef HOST_OS_OSX
@@ -1698,7 +1698,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	}
 
 	log_debug("main", "initialize privilege separation");
-#ifndef AA_SDK_INTEGRATION 
+#ifndef ENABLE_AA 
 	priv_init(PRIVSEP_CHROOT, ctl, uid, gid);
 #endif
 
@@ -1814,7 +1814,6 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	log_debug("main", "start main loop");
 	levent_loop(cfg);
 	lldpd_exit(cfg);
-
 	return (0);
 }
 #endif

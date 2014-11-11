@@ -54,7 +54,7 @@ lldpd_af_from_lldp_proto(int proto)
 
 int lldp_send(struct lldpd *global,
 	  struct lldpd_hardware *hardware
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
          )
 #else
           ,u_int8_t *p)
@@ -93,11 +93,11 @@ int lldp_send(struct lldpd *global,
 
 	port = &hardware->h_lport;
 	chassis = port->p_chassis;
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	length = hardware->h_mtu;
 	if ((packet = (u_int8_t*)calloc(1, length)) == NULL)
 		return ENOMEM;
-#else // AA_SDK_INTEGRATION
+#else // ENABLE_AA
         // ethernet header is filled in elsewhere, must save room for it
 	length = hardware->h_mtu-sizeof(struct ether_header);
         packet = p;
@@ -107,7 +107,7 @@ int lldp_send(struct lldpd *global,
 	pos = packet;
 
 
-//#ifndef AA_SDK_INTEGRATION
+//#ifndef ENABLE_AA
 	/* Ethernet header */
 	if (!(
 	      /* LLDP multicast address */
@@ -516,7 +516,7 @@ int lldp_send(struct lldpd *global,
 	      POKE_END_LLDP_TLV))
 		goto toobig;
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
 	if (interfaces_send_helper(global, hardware,
 		(char *)packet, pos - packet) == -1) {
 		log_warn("lldp", "unable to send packet on real device for %s",
@@ -545,7 +545,7 @@ int lldp_send(struct lldpd *global,
 			free(frame);
 	}
 
-#ifndef AA_SDK_INTEGRATION
+#ifndef ENABLE_AA
         free(packet);
         return 0;
 #else
