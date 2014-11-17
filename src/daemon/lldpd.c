@@ -1057,16 +1057,16 @@ lldpd_send(struct lldpd_hardware *hardware, char *p)
 			continue;
 #else
 			if ( (lldp_size = cfg->g_protocols[i].send(cfg, hardware,p)) != E2BIG)
-                        {
-			  sent++;
-                          continue;
-                        }
-                        else
-                        {
-	                  log_debug("send", "send PDU on %s failed E2BIG", 
-                                    hardware->h_ifname);
-                          continue;
-                        }
+			{
+				sent++;
+				continue;
+			}
+			else
+			{
+				log_debug("send", "send PDU on %s failed E2BIG", 
+				hardware->h_ifname);
+				continue;
+			}
 #endif
 		}
 		TAILQ_FOREACH(port, &hardware->h_rports, p_entries) {

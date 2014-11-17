@@ -16,6 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef _LLDP_AA_STRUCTS_H
+#define _LLDP_AA_STRUCTS_H
+
 struct lldp_aa_element_system_id {
     u_int8_t       system_mac[6];
     unsigned short conn_type:4;
@@ -40,3 +43,5 @@ struct lldpd_aa_isid_vlan_maps_tlv {
 
 	struct 						lldpd_aa_isid_vlan_map_data isid_vlan_data;
 };
+
+#endif /* _LLDP_AA_STRUCTS_H */
