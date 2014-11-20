@@ -22,6 +22,11 @@
 #  include <config.h>
 #endif
 
+#if HAVE_LLDP
+#define ENABLE_AA 1
+#define ETHERTYPE_LLDP 0x88cc
+#endif
+
 #ifdef HAVE_VALGRIND_VALGRIND_H
 # include <valgrind/valgrind.h>
 #else
@@ -55,11 +60,18 @@
 #  include "edp.h"
 #endif
 
+//#ifdef ENABLE_AA 
+#if 0
+#include "../log.h"
+#include "../marshal.h"
+#include "../lldpd-structs.h"
+#else
 #include "../compat/compat.h"
 #include "../marshal.h"
 #include "../log.h"
 #include "../ctl.h"
 #include "../lldpd-structs.h"
+#endif
 
 /* We don't want to import event2/event.h. We only need those as
    opaque structs. */
@@ -78,7 +90,11 @@ struct event_base;
 
 #define USING_AGENTX_SUBAGENT_MODULE 1
 
+#ifndef ENABLE_AA
 #define PROTO_SEND_SIG struct lldpd *, struct lldpd_hardware *
+#else
+#define PROTO_SEND_SIG struct lldpd *, struct lldpd_hardware *,u_int8_t *
+#endif
 #define PROTO_DECODE_SIG struct lldpd *, char *, int, struct lldpd_hardware *, struct lldpd_chassis **, struct lldpd_port **
 #define PROTO_GUESS_SIG char *, int
 
@@ -125,6 +141,9 @@ struct lldpd {
 
 	char			*g_lsb_release;
 
+#ifdef ENABLE_AA
+        int                      g_aa_global_enabled;
+#endif
 #define LOCAL_CHASSIS(cfg) ((struct lldpd_chassis *)(TAILQ_FIRST(&cfg->g_chassis)))
 	TAILQ_HEAD(, lldpd_chassis) g_chassis;
 	TAILQ_HEAD(, lldpd_hardware) g_hardware;
@@ -136,10 +155,23 @@ struct lldpd_hardware	*lldpd_get_hardware(struct lldpd *,
 struct lldpd_hardware	*lldpd_alloc_hardware(struct lldpd *, char *, int);
 void	 lldpd_hardware_cleanup(struct lldpd*, struct lldpd_hardware *);
 struct lldpd_mgmt *lldpd_alloc_mgmt(int family, void *addr, size_t addrsize, u_int32_t iface);
+#ifdef ENABLE_AA
+void	 lldpd_recv(struct lldpd *, struct lldpd_hardware *, char *, size_t);
+#else
 void	 lldpd_recv(struct lldpd *, struct lldpd_hardware *, int);
+#endif
+#ifndef ENABLE_AA
 void	 lldpd_send(struct lldpd_hardware *);
+#else
+uint32_t	 lldpd_send(struct lldpd_hardware *,char *);
+#endif
 void	 lldpd_loop(struct lldpd *);
+
+#ifdef ENABLE_AA
+int	 lldpd_main(int, char **);
+#else
 int	 lldpd_main(int, char **, char **);
+#endif
 void	 lldpd_update_localports(struct lldpd *);
 void	 lldpd_cleanup(struct lldpd *);
 
@@ -211,6 +243,7 @@ void		 agent_notify(struct lldpd_hardware *, int, struct lldpd_port *);
 void		 agent_priv_register_domain(void);
 #endif
 
+#ifndef ENABLE_AA 
 /* client.c */
 int
 client_handle_client(struct lldpd *cfg,
@@ -218,6 +251,7 @@ client_handle_client(struct lldpd *cfg,
     void *,
     enum hmsg_type type, void *buffer, size_t n,
     int*);
+#endif //ENABLE_AA 
 
 /* priv.c */
 void	 priv_init(const char*, int, uid_t, gid_t);

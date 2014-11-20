@@ -250,15 +250,16 @@ lldp_ARG_WITH([lldpd-ctl-socket], [Path to socket for communication with lldpd],
 lldp_ARG_WITH([lldpd-pid-file], [Path to lldpd PID file], [${runstatedir}/lldpd.pid])
 
 # CDP/FDP/EDP/SONMP
-lldp_ARG_ENABLE([cdp], [Cisco Discovery Protocol], [yes])
-lldp_ARG_ENABLE([fdp], [Foundry Discovery Protocol], [yes])
-lldp_ARG_ENABLE([edp], [Extreme Discovery Protocol], [yes])
-lldp_ARG_ENABLE([sonmp], [SynOptics Network Management Protocol], [yes])
+lldp_ARG_ENABLE([cdp], [Cisco Discovery Protocol], [no])
+lldp_ARG_ENABLE([fdp], [Foundry Discovery Protocol], [no])
+lldp_ARG_ENABLE([edp], [Extreme Discovery Protocol], [no])
+lldp_ARG_ENABLE([sonmp], [SynOptics Network Management Protocol], [no])
 
-# LLDPMED/Dot1/Dot3
-lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [yes])
+# LLDPMED/Dot1/Dot3/AA
+lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [no])
 lldp_ARG_ENABLE([dot1], [Dot1 extension (VLAN stuff)], [yes])
 lldp_ARG_ENABLE([dot3], [Dot3 extension (PHY stuff)], [yes])
+lldp_ARG_ENABLE([aa],[Auto Attach extension], [yes])
 
 # Oldies
 lldp_ARG_ENABLE([oldies], [compatibility with Linux kernel older than 2.6.18], [no])
@@ -299,6 +300,7 @@ cat <<EOF
   LLDPMED........: $enable_lldpmed
   DOT1...........: $enable_dot1
   DOT3...........: $enable_dot3
+  AA.............: $enable_aa
   XML output.....: ${with_xml-no}
   JSON output....: ${with_json-no}
   Oldies support.: $enable_oldies

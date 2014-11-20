@@ -13,5 +13,9 @@
 int
 main(int argc, char **argv, char **envp)
 {
+#ifndef ENABLE_AA
 	return lldpd_main(argc, argv, envp);
+#else
+        return 0;
+#endif
 }

@@ -517,7 +517,9 @@ levent_hardware_recv(evutil_socket_t fd, short what, void *arg)
 	(void)what;
 	log_debug("event", "received something for %s",
 	    hardware->h_ifname);
+#ifndef ENABLE_AA 
 	lldpd_recv(cfg, hardware, fd);
+#endif
 	levent_schedule_cleanup(cfg);
 }
 
@@ -728,7 +730,10 @@ levent_send_pdu(evutil_socket_t fd, short what, void *arg)
 
 	log_debug("event", "trigger sending PDU for port %s",
 	    hardware->h_ifname);
+
+#ifndef ENABLE_AA 
 	lldpd_send(hardware);
+#endif
 
 #ifdef ENABLE_LLDPMED
 	if (hardware->h_tx_fast > 0)

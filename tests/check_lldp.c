@@ -734,6 +734,136 @@ Link Layer Discovery Protocol
 }
 END_TEST
 
+#ifdef ENABLE_AA
+/* AA tlv test */
+START_TEST (test_aa)
+{
+	int n;
+	struct lldpd_chassis *nchassis = NULL;
+	struct lldpd_port *nport = NULL;
+	struct packet *pkt;
+
+	/* Populate port and chassis */
+	hardware.h_lport.p_id_subtype = LLDP_PORTID_SUBTYPE_IFNAME;
+	hardware.h_lport.p_id = "FastEthernet 1/5";
+	hardware.h_lport.p_id_len = strlen(hardware.h_lport.p_id);
+	hardware.h_lport.p_descr = "Fake port description";
+	hardware.h_lport.p_mfs = 1516;
+	hardware.h_lport.p_aggregid = 5;
+	hardware.h_lport.p_macphy.autoneg_support = 1;
+	hardware.h_lport.p_macphy.autoneg_enabled = 1;
+	hardware.h_lport.p_macphy.autoneg_advertised = LLDP_DOT3_LINK_AUTONEG_10BASE_T |
+		LLDP_DOT3_LINK_AUTONEG_10BASET_FD | LLDP_DOT3_LINK_AUTONEG_100BASE_TX |
+		LLDP_DOT3_LINK_AUTONEG_100BASE_TXFD;
+	hardware.h_lport.p_macphy.mau_type = LLDP_DOT3_MAU_100BASETXFD;
+	
+	/* Test AA tlv addition */
+	hardware.h_lport.p_element.type = 0xA;
+	hardware.h_lport.p_element.mgmt_vlan = 0xCDC;
+	hardware.h_lport.p_element.system_id.system_mac[0] = 0x1;
+	hardware.h_lport.p_element.system_id.system_mac[1] = 0x2;
+	hardware.h_lport.p_element.system_id.system_mac[2] = 0x3;
+	hardware.h_lport.p_element.system_id.system_mac[3] = 0x4;
+	hardware.h_lport.p_element.system_id.system_mac[4] = 0x5;
+	hardware.h_lport.p_element.system_id.system_mac[5] = 0x6;
+
+	hardware.h_lport.p_element.system_id.conn_type = 0x5;
+	hardware.h_lport.p_element.system_id.smlt_id = 0xFCC;
+	hardware.h_lport.p_element.system_id.mlt_id[0] = 0xB;
+	hardware.h_lport.p_element.system_id.mlt_id[1] = 0xE;
+
+	struct lldpd_aa_isid_vlan_maps_tlv p_map;
+	struct lldpd_aa_isid_vlan_maps_tlv p2_map;
+
+	p_map.isid_vlan_data.status = 0xC;
+	p2_map.isid_vlan_data.status = 0xD;
+	p_map.isid_vlan_data.vlan = 0x64;
+	p2_map.isid_vlan_data.vlan = 0xF;
+	p_map.isid_vlan_data.isid[0] = 1;
+	p_map.isid_vlan_data.isid[1] = 2;
+	p_map.isid_vlan_data.isid[2] = 3;
+	p2_map.isid_vlan_data.isid[0] = 4;
+	p2_map.isid_vlan_data.isid[1] = 5;
+	p2_map.isid_vlan_data.isid[2] = 6;
+	TAILQ_INIT(&hardware.h_lport.p_isid_vlan_maps);
+	TAILQ_INSERT_TAIL(&hardware.h_lport.p_isid_vlan_maps,&p_map, m_entries);
+	TAILQ_INSERT_TAIL(&hardware.h_lport.p_isid_vlan_maps,&p2_map, m_entries);
+	chassis.c_id_subtype = LLDP_CHASSISID_SUBTYPE_LLADDR;
+	chassis.c_id = macaddress;
+	chassis.c_id_len = ETHER_ADDR_LEN;
+	chassis.c_name = "Fourth chassis";
+	chassis.c_descr = "Long chassis description";
+	chassis.c_cap_available = chassis.c_cap_enabled = LLDP_CAP_ROUTER | LLDP_CAP_WLAN;
+
+	/* Build packet */
+	n = lldp_send(NULL, &hardware);
+	if (n != 0) {
+		fail("unable to build packet");
+		return;
+	}
+	if (TAILQ_EMPTY(&pkts)) {
+		fail("no packets sent");
+		return;
+	}
+	pkt = TAILQ_FIRST(&pkts);
+	fail_unless(TAILQ_NEXT(pkt, next) == NULL, "more than one packet sent");
+
+	/* decode the retrieved packet calling lldp_decode() */
+	fail_unless(lldp_decode(NULL, pkt->data, pkt->size, &hardware,
+		&nchassis, &nport) != -1);
+	if (!nchassis || !nport) {
+		fail("unable to decode packet");
+		return;
+	}
+	/* verify port values */
+	check_received_port(&hardware.h_lport, nport);
+	/* verify chassis values */
+	check_received_chassis(&chassis, nchassis);
+	/* verify dot3 values */
+	check_received_port_dot3(&hardware.h_lport, nport);
+	/* check FA values */
+	ck_assert_int_eq(nport->p_element.type, hardware.h_lport.p_element.type);
+	ck_assert_int_eq(nport->p_element.mgmt_vlan, hardware.h_lport.p_element.mgmt_vlan);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[0], hardware.h_lport.p_element.system_id.system_mac[0]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[1], hardware.h_lport.p_element.system_id.system_mac[1]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[2], hardware.h_lport.p_element.system_id.system_mac[2]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[3], hardware.h_lport.p_element.system_id.system_mac[3]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[4], hardware.h_lport.p_element.system_id.system_mac[4]);
+	ck_assert_int_eq(nport->p_element.system_id.system_mac[5], hardware.h_lport.p_element.system_id.system_mac[5]);
+	ck_assert_int_eq(nport->p_element.system_id.conn_type, hardware.h_lport.p_element.system_id.conn_type);
+	ck_assert_int_eq(nport->p_element.system_id.smlt_id, hardware.h_lport.p_element.system_id.smlt_id);
+	ck_assert_int_eq(nport->p_element.system_id.mlt_id[0], hardware.h_lport.p_element.system_id.mlt_id[0]);
+	ck_assert_int_eq(nport->p_element.system_id.mlt_id[1], hardware.h_lport.p_element.system_id.mlt_id[1]);
+
+
+	if (TAILQ_EMPTY(&nport->p_isid_vlan_maps)) {
+		fail("no AA isid->vlan maps");
+		return;
+	}
+	struct lldpd_aa_isid_vlan_maps_tlv *received_map;
+	received_map = TAILQ_FIRST(&nport->p_isid_vlan_maps);
+	
+	ck_assert_int_eq(p_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
+	ck_assert_int_eq(p_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[1], received_map->isid_vlan_data.isid[1]);
+	ck_assert_int_eq(p_map.isid_vlan_data.isid[2], received_map->isid_vlan_data.isid[2]);
+	received_map = TAILQ_NEXT(received_map, m_entries);
+	/*
+	for (int i=0; i<20; i++) {
+		ck_assert_int_eq(p2_map.msg_auth_digest[i], received_map->msg_auth_digest[i]);
+	}
+	*/
+	ck_assert_int_eq(p2_map.isid_vlan_data.status, received_map->isid_vlan_data.status);
+	ck_assert_int_eq(p2_map.isid_vlan_data.vlan, received_map->isid_vlan_data.vlan);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[0], received_map->isid_vlan_data.isid[0]);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[1], received_map->isid_vlan_data.isid[1]);
+	ck_assert_int_eq(p2_map.isid_vlan_data.isid[2], received_map->isid_vlan_data.isid[2]);
+
+}
+END_TEST
+#endif
+
 Suite *
 lldp_suite(void)
 {
@@ -760,6 +890,9 @@ lldp_suite(void)
 #endif
 #ifdef ENABLE_DOT3
 	tcase_add_test(tc_send, test_send_rcv_dot3);
+#endif
+#ifdef ENABLE_AA
+	tcase_add_test(tc_send, test_aa);
 #endif
 	suite_add_tcase(s, tc_send);
 

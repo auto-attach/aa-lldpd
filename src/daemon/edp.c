@@ -31,7 +31,12 @@ static int seq = 0;
 
 int
 edp_send(struct lldpd *global,
-	 struct lldpd_hardware *hardware)
+	 struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	const u_int8_t mcastaddr[] = EDP_MULTICAST_ADDR;
 	const u_int8_t llcorg[] = LLC_ORG_EXTREME;

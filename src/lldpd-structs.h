@@ -42,6 +42,10 @@
 #include "marshal.h"
 #include "lldp-const.h"
 
+#ifdef ENABLE_AA
+#include "aa-structs.h"
+#endif
+
 #ifdef ENABLE_DOT1
 struct lldpd_ppvid {
 	TAILQ_ENTRY(lldpd_ppvid) p_entries;
@@ -253,6 +257,10 @@ struct lldpd_port {
 	TAILQ_HEAD(, lldpd_ppvid) p_ppvids;
 	TAILQ_HEAD(, lldpd_pi)	  p_pids;
 #endif
+#ifdef ENABLE_AA
+	struct lldpd_aa_element_tlv p_element;
+	TAILQ_HEAD(, lldpd_aa_isid_vlan_maps_tlv)	p_isid_vlan_maps; 
+#endif
 };
 MARSHAL_BEGIN(lldpd_port)
 MARSHAL_TQE(lldpd_port, p_entries)
@@ -343,9 +351,9 @@ MARSHAL_BEGIN(lldpd_config)
 MARSHAL_STR(lldpd_config, c_mgmt_pattern)
 MARSHAL_STR(lldpd_config, c_cid_pattern)
 MARSHAL_STR(lldpd_config, c_iface_pattern)
-MARSHAL_STR(lldpd_config, c_hostname)
 MARSHAL_STR(lldpd_config, c_platform)
 MARSHAL_STR(lldpd_config, c_description)
+MARSHAL_STR(lldpd_config, c_hostname)
 MARSHAL_END(lldpd_config);
 
 struct lldpd_frame {
@@ -404,6 +412,10 @@ struct lldpd_hardware {
 
 #ifdef ENABLE_LLDPMED
 	int			h_tx_fast; /* current tx fast start count */
+#endif
+#ifdef ENABLE_AA
+	int                     h_aa_enabled; /* AA enabled */
+        int                     h_aa_notify;  /* set when AA goes from disabled to enabled */
 #endif
 };
 MARSHAL_BEGIN(lldpd_hardware)

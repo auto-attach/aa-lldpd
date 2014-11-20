@@ -183,7 +183,12 @@ static struct sonmp_chassis sonmp_chassis_types[] = {
 
 int
 sonmp_send(struct lldpd *global,
-    struct lldpd_hardware *hardware)
+    struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	const u_int8_t mcastaddr[] = SONMP_MULTICAST_ADDR;
 	const u_int8_t llcorg[] = LLC_ORG_NORTEL;

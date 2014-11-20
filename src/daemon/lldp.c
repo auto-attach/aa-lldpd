@@ -14,7 +14,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
 #include "lldpd.h"
 #include "frame.h"
 
@@ -25,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+
 
 inline static int
 lldpd_af_to_lldp_proto(int af)
@@ -52,9 +52,13 @@ lldpd_af_from_lldp_proto(int proto)
 	}
 }
 
-int
-lldp_send(struct lldpd *global,
-	  struct lldpd_hardware *hardware)
+int lldp_send(struct lldpd *global,
+	  struct lldpd_hardware *hardware
+#ifndef ENABLE_AA
+         )
+#else
+          ,u_int8_t *p)
+#endif
 {
 	struct lldpd_port *port;
 	struct lldpd_chassis *chassis;
@@ -78,17 +82,32 @@ lldp_send(struct lldpd *global,
 	int i;
 	const u_int8_t med[] = LLDP_TLV_ORG_MED;
 #endif
+#ifdef ENABLE_AA
+	const u_int8_t avaya[] = LLDP_TLV_ORG_AVAYA;
+	struct lldpd_aa_isid_vlan_maps_tlv *vlan_isid_map;
+	u_int8_t msg_auth_digest[LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH];
+#endif
 
-	log_debug("lldp", "send LLDP PDU to %s",
-	    hardware->h_ifname);
+	log_debug("lldp", "send LLDP PDU to %s mtu=%d",
+	    hardware->h_ifname,hardware->h_mtu);
 
 	port = &hardware->h_lport;
 	chassis = port->p_chassis;
+#ifndef ENABLE_AA
 	length = hardware->h_mtu;
 	if ((packet = (u_int8_t*)calloc(1, length)) == NULL)
 		return ENOMEM;
+#else // ENABLE_AA
+        // ethernet header is filled in elsewhere, must save room for it
+	length = hardware->h_mtu-sizeof(struct ether_header);
+        packet = p;
+	log_debug("lldp", "LLDP PDU send to %s mtu %d incoming with ptr=%p", 
+                          hardware->h_ifname, hardware->h_mtu, packet);
+#endif
 	pos = packet;
 
+
+//#ifndef ENABLE_AA
 	/* Ethernet header */
 	if (!(
 	      /* LLDP multicast address */
@@ -98,7 +117,7 @@ lldp_send(struct lldpd *global,
 	      /* LLDP frame */
 	      POKE_UINT16(ETHERTYPE_LLDP)))
 		goto toobig;
-
+//#endif
 	/* Chassis ID */
 	if (!(
 	      POKE_START_LLDP_TLV(LLDP_TLV_CHASSIS_ID) &&
@@ -424,12 +443,80 @@ lldp_send(struct lldpd *global,
 	}
 #endif
 
+#ifdef ENABLE_AA
+        /* Add Auto Attach tlvs to packet */
+        /* AA-ELEMENT */
+	if (port->p_element.type != 0) {
+	    u_int8_t fa_element_first_byte;
+	    u_int8_t fa_element_second_byte;
+	    u_int8_t fa_elem_sys_id_first_byte;
+	    u_int8_t fa_elem_sys_id_second_byte;
+	    // .type should be first 4 most significant bits, so bitwise OR that
+	    // with the first 4 bits of the 12-bit-wide .mgmt_vlan
+	    fa_element_first_byte = ((port->p_element.type & 0xF) << 4) | 
+		((port->p_element.mgmt_vlan >> 8) & 0xF);
+	    // second byte should just be the remaining 8 bits of .mgmt_vlan
+	    fa_element_second_byte = port->p_element.mgmt_vlan & 0x0FF;
+	    // .conn_type should be 4 most sig. bits, so bitwise OR that 
+	    // with the first 4 bits of the 12-bit-wide .smlt_id
+	    fa_elem_sys_id_first_byte = ((port->p_element.system_id.conn_type & 0xF) << 4) | 
+		((port->p_element.system_id.smlt_id >> 8) & 0xF);
+	    // second byte should just be the remaining 8 bits of .smlt_id
+	    fa_elem_sys_id_second_byte = port->p_element.system_id.smlt_id & 0x0FF;
+
+		if (!(
+		    POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+		    POKE_BYTES(avaya, sizeof(avaya)) &&
+		    POKE_UINT8(LLDP_TLV_AA_ELEMENT_SUBTYPE) &&
+		    POKE_UINT8(fa_element_first_byte) &&
+		    POKE_UINT8(fa_element_second_byte) &&
+		    POKE_BYTES(&port->p_element.system_id.system_mac,
+			sizeof(port->p_element.system_id.system_mac)) &&
+		    POKE_UINT8(fa_elem_sys_id_first_byte) &&
+		    POKE_UINT8(fa_elem_sys_id_second_byte) &&
+		    POKE_BYTES(&port->p_element.system_id.mlt_id, 
+			sizeof(port->p_element.system_id.mlt_id)) &&
+		    POKE_END_LLDP_TLV))
+			goto toobig;
+	}
+	if ( ! TAILQ_EMPTY(&port->p_isid_vlan_maps) ) {
+	    int j;
+	    // FIXME calculate the msg digest based on HMAC-SHA256 per spec. req.
+	    for( j=0; j < LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH; j++ ) {
+		msg_auth_digest[j] = 0;
+	    }
+	    if (!(
+		POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
+		POKE_BYTES(avaya, sizeof(avaya)) &&
+		POKE_UINT8(LLDP_TLV_AA_ISID_VLAN_ASGNS_SUBTYPE) &&
+		POKE_BYTES(msg_auth_digest, 
+		    sizeof(msg_auth_digest))
+		))
+		    goto toobig;
+
+	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
+		u_int16_t status_vlan_word;
+		status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
+		    vlan_isid_map->isid_vlan_data.vlan;
+		if (!(
+		    POKE_UINT16(status_vlan_word) &&
+		    POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+		      sizeof(vlan_isid_map->isid_vlan_data.isid))
+		    ))
+		    goto toobig;
+	    }
+	    if (! (POKE_END_LLDP_TLV) )
+		goto toobig;
+	}
+#endif
+
 	/* END */
 	if (!(
 	      POKE_START_LLDP_TLV(LLDP_TLV_END) &&
 	      POKE_END_LLDP_TLV))
 		goto toobig;
 
+#ifndef ENABLE_AA
 	if (interfaces_send_helper(global, hardware,
 		(char *)packet, pos - packet) == -1) {
 		log_warn("lldp", "unable to send packet on real device for %s",
@@ -437,6 +524,7 @@ lldp_send(struct lldpd *global,
 		free(packet);
 		return ENETDOWN;
 	}
+#endif
 
 	hardware->h_tx_cnt++;
 
@@ -444,6 +532,7 @@ lldp_send(struct lldpd *global,
 	if ((frame = (struct lldpd_frame*)malloc(
 			sizeof(int) + pos - packet)) != NULL) {
 		frame->size = pos - packet;
+                length = frame->size;
 		memcpy(&frame->frame, packet, frame->size);
 		if ((hardware->h_lport.p_lastframe == NULL) ||
 		    (hardware->h_lport.p_lastframe->size != frame->size) ||
@@ -456,9 +545,13 @@ lldp_send(struct lldpd *global,
 			free(frame);
 	}
 
-	free(packet);
-	return 0;
+#ifndef ENABLE_AA
+        free(packet);
+        return 0;
+#else
+	return length;
 
+#endif
 toobig:
 	free(packet);
 	return E2BIG;
@@ -482,6 +575,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	const char dot1[] = LLDP_TLV_ORG_DOT1;
 	const char dot3[] = LLDP_TLV_ORG_DOT3;
 	const char med[] = LLDP_TLV_ORG_MED;
+	const char avaya_oid[] = LLDP_TLV_ORG_AVAYA;
 	const char dcbx[] = LLDP_TLV_ORG_DCBX;
 	char orgid[3];
 	int length, gotend = 0, ttl_received = 0;
@@ -493,6 +587,10 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	int vlan_len;
 	struct lldpd_ppvid *ppvid;
 	struct lldpd_pi *pi = NULL;
+#endif
+#ifdef ENABLE_AA
+	struct lldpd_aa_isid_vlan_maps_tlv *isid_vlan_map = NULL;
+	u_int8_t msg_auth_digest[LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH];
 #endif
 	struct lldpd_mgmt *mgmt;
 	int af;
@@ -517,6 +615,9 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	TAILQ_INIT(&port->p_vlans);
 	TAILQ_INIT(&port->p_ppvids);
 	TAILQ_INIT(&port->p_pids);
+#endif
+#ifdef ENABLE_AA
+	TAILQ_INIT(&port->p_isid_vlan_maps);
 #endif
 
 	length = s;
@@ -808,6 +909,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 				}
 #endif
 			} else if (memcmp(med, orgid, sizeof(orgid)) == 0) {
+			
 				/* LLDP-MED */
 #ifndef ENABLE_LLDPMED
 				hardware->h_rx_unrecognized_cnt++;
@@ -989,6 +1091,96 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					hardware->h_rx_unrecognized_cnt++;
 				}
 #endif /* ENABLE_LLDPMED */
+			} else if (memcmp(avaya_oid, orgid, sizeof(orgid)) == 0) {
+#ifndef ENABLE_AA
+				hardware->h_rx_unrecognized_cnt++;
+#else
+				u_int16_t fa_element_word;
+				u_int16_t fa_status_vlan_word;
+				u_int16_t fa_system_id_word;
+				unsigned short num_mappings;
+
+				log_info("auto_attach", "Received aa tlv");
+
+				switch(tlv_subtype) {
+				case LLDP_TLV_AA_ELEMENT_SUBTYPE:
+					fa_element_word = PEEK_UINT16;
+					/* type is first 4 most-significant bits */
+					port->p_element.type = fa_element_word >> 12;
+					/* mgmt_vlan is last 12 bits */
+					port->p_element.mgmt_vlan = fa_element_word & 0x0FFF;
+					log_info("auto_attach", "Element type: %X, Mgmt vlan: %X", 
+							port->p_element.type,
+							port->p_element.mgmt_vlan);
+					PEEK_BYTES(&port->p_element.system_id.system_mac,
+						sizeof(port->p_element.system_id.system_mac));
+					log_info("auto_attach", "System mac: 0x%.2X%.2X%.2X%.2X%.2X%.2X",
+						port->p_element.system_id.system_mac[0],
+						port->p_element.system_id.system_mac[1],
+						port->p_element.system_id.system_mac[2],
+						port->p_element.system_id.system_mac[3],
+						port->p_element.system_id.system_mac[4],
+						port->p_element.system_id.system_mac[5]);
+					fa_system_id_word = PEEK_UINT16;
+					port->p_element.system_id.conn_type = fa_system_id_word >> 12;
+					port->p_element.system_id.smlt_id = fa_system_id_word & 0x0FFF;
+					PEEK_BYTES(&port->p_element.system_id.mlt_id,
+						sizeof(port->p_element.system_id.mlt_id));
+					
+				       	break;
+				case LLDP_TLV_AA_ISID_VLAN_ASGNS_SUBTYPE:
+					PEEK_BYTES(&msg_auth_digest,
+						sizeof(msg_auth_digest));
+					// TODO validate msg digest if necessary
+					
+					// Subtract off tlv type and length (2Bytes) + OUI (3B) +
+					// Subtype (1B) + MSG DIGEST (32B)
+					num_mappings = tlv_size - 4 - LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH;
+					if( (num_mappings % 5) != 0 ) {
+					    log_info("auto_attach", "malformed vlan-isid mappings tlv received.");
+					} else {
+					    num_mappings /= 5; // Each mapping is 5 Bytes
+					    for( ; num_mappings > 0; num_mappings-- ) {
+						if ((isid_vlan_map = 
+						  (struct lldpd_aa_isid_vlan_maps_tlv *) 
+						  calloc(1, sizeof(struct lldpd_aa_isid_vlan_maps_tlv)))
+						  == NULL ) {
+							log_warnx("lldp", "unable to allocate memory "
+							"for aa_isid_vlan_maps_tlv struct");
+							goto malformed;
+						}
+						fa_status_vlan_word = PEEK_UINT16;
+						/* status is first 4 most-significant bits */
+						isid_vlan_map->isid_vlan_data.status =
+							fa_status_vlan_word >> 12;
+						/* vlan is last 12 bits */
+						isid_vlan_map->isid_vlan_data.vlan = 
+							fa_status_vlan_word & 0x0FFF;
+						PEEK_BYTES(&isid_vlan_map->isid_vlan_data.isid,
+							sizeof(isid_vlan_map->isid_vlan_data.isid));
+						TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
+							isid_vlan_map, m_entries);
+						log_info("auto_attach", "Vlan<->Isid received. Vlan: 0x%X(%d) "
+							 "Isid: 0x%.2X%.2X%.2X(%d)", 
+								isid_vlan_map->isid_vlan_data.vlan,
+								isid_vlan_map->isid_vlan_data.vlan,
+								isid_vlan_map->isid_vlan_data.isid[0],
+								isid_vlan_map->isid_vlan_data.isid[1],
+								isid_vlan_map->isid_vlan_data.isid[2],
+								(isid_vlan_map->isid_vlan_data.isid[0]<<16) | 
+								(isid_vlan_map->isid_vlan_data.isid[1]<<8) | 
+								(isid_vlan_map->isid_vlan_data.isid[2]) 
+								);
+						isid_vlan_map = NULL;
+					    }
+					}
+				       	break;
+				default:
+					hardware->h_rx_unrecognized_cnt++;
+					log_info("auto_attach", "Unrecogised tlv subtype received");
+					break;
+				}
+#endif
 			} else if (memcmp(dcbx, orgid, sizeof(orgid)) == 0) {
 				log_debug("lldp", "unsupported DCBX tlv received on %s - ignore",
 				    hardware->h_ifname);

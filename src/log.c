@@ -27,8 +27,10 @@
 #include <errno.h>
 #include <time.h>
 
+#include "log.h"
+
 /* By default, logging is done on stderr. */
-static int	 debug = 1;
+static int	 debug = 3;
 
 /* Logging can be modified by providing an appropriate log handler. */
 static void (*logh)(int severity, const char *msg) = NULL;
