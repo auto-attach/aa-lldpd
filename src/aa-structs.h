@@ -19,6 +19,8 @@
 #ifndef _LLDP_AA_STRUCTS_H
 #define _LLDP_AA_STRUCTS_H
 
+#include <sys/queue.h>
+
 struct lldp_aa_element_system_id {
     u_int8_t       system_mac[6];
     unsigned short conn_type:4;

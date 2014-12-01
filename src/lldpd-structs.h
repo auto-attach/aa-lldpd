@@ -415,7 +415,7 @@ struct lldpd_hardware {
 #endif
 #ifdef ENABLE_AA
 	int                     h_aa_enabled; /* AA enabled */
-        int                     h_aa_notify;  /* set when AA goes from disabled to enabled */
+	int                     h_aa_notify;  /* set when AA goes from disabled to enabled */
 #endif
 };
 MARSHAL_BEGIN(lldpd_hardware)

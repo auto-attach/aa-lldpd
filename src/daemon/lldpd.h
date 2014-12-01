@@ -60,8 +60,7 @@
 #  include "edp.h"
 #endif
 
-//#ifdef ENABLE_AA 
-#if 0
+#ifndef ENABLE_AA 
 #include "../log.h"
 #include "../marshal.h"
 #include "../lldpd-structs.h"
