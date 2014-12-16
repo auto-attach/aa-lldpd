@@ -24,7 +24,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#ifdef ENABLE_AA
+#include <stdbool.h> /* bool */
 
+extern struct lldpd *lldp_cfg;
+#define cfg lldp_cfg
+#endif
 
 inline static int
 lldpd_af_to_lldp_proto(int af)
@@ -55,9 +60,9 @@ lldpd_af_from_lldp_proto(int proto)
 int lldp_send(struct lldpd *global,
 	  struct lldpd_hardware *hardware
 #ifndef ENABLE_AA
-         )
+	)
 #else
-          ,u_int8_t *p)
+	,u_int8_t *p)
 #endif
 {
 	struct lldpd_port *port;
@@ -86,6 +91,9 @@ int lldp_send(struct lldpd *global,
 	const u_int8_t avaya[] = LLDP_TLV_ORG_AVAYA;
 	struct lldpd_aa_isid_vlan_maps_tlv *vlan_isid_map;
 	u_int8_t msg_auth_digest[LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH];
+	struct lldpd_port *rport;
+	bool isid_vlan_tlv_present = false;
+	u_int16_t status_vlan_word;
 #endif
 
 	log_debug("lldp", "send LLDP PDU to %s mtu=%d",
@@ -98,11 +106,11 @@ int lldp_send(struct lldpd *global,
 	if ((packet = (u_int8_t*)calloc(1, length)) == NULL)
 		return ENOMEM;
 #else // ENABLE_AA
-        // ethernet header is filled in elsewhere, must save room for it
+	// ethernet header is filled in elsewhere, must save room for it
 	length = hardware->h_mtu-sizeof(struct ether_header);
-        packet = p;
+	packet = p;
 	log_debug("lldp", "LLDP PDU send to %s mtu %d incoming with ptr=%p", 
-                          hardware->h_ifname, hardware->h_mtu, packet);
+		hardware->h_ifname, hardware->h_mtu, packet);
 #endif
 	pos = packet;
 
@@ -444,8 +452,8 @@ int lldp_send(struct lldpd *global,
 #endif
 
 #ifdef ENABLE_AA
-        /* Add Auto Attach tlvs to packet */
-        /* AA-ELEMENT */
+	/* Add Auto Attach tlvs to packet */
+	/* AA-ELEMENT */
 	if (port->p_element.type != 0) {
 	    u_int8_t fa_element_first_byte;
 	    u_int8_t fa_element_second_byte;
@@ -479,8 +487,12 @@ int lldp_send(struct lldpd *global,
 		    POKE_END_LLDP_TLV))
 			goto toobig;
 	}
-	if ( ! TAILQ_EMPTY(&port->p_isid_vlan_maps) ) {
+	if ( (! TAILQ_EMPTY(&port->p_isid_vlan_maps)) ||
+	    ((rport = TAILQ_FIRST(&hardware->h_rports)) &&
+	    (!TAILQ_EMPTY(&rport->p_isid_vlan_maps))) ) {
 	    int j;
+	    u_int16_t status_vlan_word;
+
 	    // FIXME calculate the msg digest based on HMAC-SHA256 per spec. req.
 	    for( j=0; j < LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH; j++ ) {
 		msg_auth_digest[j] = 0;
@@ -489,13 +501,25 @@ int lldp_send(struct lldpd *global,
 		POKE_START_LLDP_TLV(LLDP_TLV_ORG) &&
 		POKE_BYTES(avaya, sizeof(avaya)) &&
 		POKE_UINT8(LLDP_TLV_AA_ISID_VLAN_ASGNS_SUBTYPE) &&
-		POKE_BYTES(msg_auth_digest, 
+		POKE_BYTES(msg_auth_digest,
 		    sizeof(msg_auth_digest))
 		))
 		    goto toobig;
 
+#ifdef AA_CLIENT_PROXY_TBD
+	    /* local ports */
 	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
-		u_int16_t status_vlan_word;
+		 log_info("auto_attach", "Vlan<->Isid local send. Vlan: 0x%X(%d) "
+			  "Isid: 0x%.2X%.2X%.2X(%d)",
+				 vlan_isid_map->isid_vlan_data.vlan,
+				 vlan_isid_map->isid_vlan_data.vlan,
+				 vlan_isid_map->isid_vlan_data.isid[0],
+				 vlan_isid_map->isid_vlan_data.isid[1],
+				 vlan_isid_map->isid_vlan_data.isid[2],
+				 (vlan_isid_map->isid_vlan_data.isid[0]<<16) |
+				 (vlan_isid_map->isid_vlan_data.isid[1]<<8) |
+				 (vlan_isid_map->isid_vlan_data.isid[2])
+				 );
 		status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
 		    vlan_isid_map->isid_vlan_data.vlan;
 		if (!(
@@ -505,9 +529,38 @@ int lldp_send(struct lldpd *global,
 		    ))
 		    goto toobig;
 	    }
+#endif /* AA_CLIENT_PROXY_TBD */
+	    /* remote ports */
+	    TAILQ_FOREACH (rport, &hardware->h_rports, p_entries){
+		if ( !TAILQ_EMPTY(&rport->p_isid_vlan_maps) ) {
+		    TAILQ_FOREACH (vlan_isid_map, &rport->p_isid_vlan_maps, m_entries) {
+		       status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
+					   vlan_isid_map->isid_vlan_data.vlan;
+		       log_info("auto_attach", "Vlan<->Isid remote send. Vlan: 0x%X(%d) "
+				"Isid: 0x%.2X%.2X%.2X(%d)",
+				       vlan_isid_map->isid_vlan_data.vlan,
+				       vlan_isid_map->isid_vlan_data.vlan,
+				       vlan_isid_map->isid_vlan_data.isid[0],
+				       vlan_isid_map->isid_vlan_data.isid[1],
+				       vlan_isid_map->isid_vlan_data.isid[2],
+				       (vlan_isid_map->isid_vlan_data.isid[0]<<16) |
+				       (vlan_isid_map->isid_vlan_data.isid[1]<<8) |
+				       (vlan_isid_map->isid_vlan_data.isid[2])
+				       );
+		       if (!(
+			   POKE_UINT16(status_vlan_word) &&
+			   POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+			   sizeof(vlan_isid_map->isid_vlan_data.isid))
+			   ))
+			      goto toobig;
+		    }
+		}
+	    }
+
 	    if (! (POKE_END_LLDP_TLV) )
 		goto toobig;
 	}
+
 #endif
 
 	/* END */
@@ -532,7 +585,7 @@ int lldp_send(struct lldpd *global,
 	if ((frame = (struct lldpd_frame*)malloc(
 			sizeof(int) + pos - packet)) != NULL) {
 		frame->size = pos - packet;
-                length = frame->size;
+		length = frame->size;
 		memcpy(&frame->frame, packet, frame->size);
 		if ((hardware->h_lport.p_lastframe == NULL) ||
 		    (hardware->h_lport.p_lastframe->size != frame->size) ||
@@ -546,8 +599,8 @@ int lldp_send(struct lldpd *global,
 	}
 
 #ifndef ENABLE_AA
-        free(packet);
-        return 0;
+	free(packet);
+	return 0;
 #else
 	return length;
 

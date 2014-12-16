@@ -39,6 +39,11 @@
 #include <pwd.h>
 #include <grp.h>
 
+#ifdef ENABLE_AA
+#include <stdbool.h> /* bool */
+#include <stddef.h>  /* size_t */
+#endif
+
 static void		 usage(void);
 
 static struct protocol protos[] =
@@ -705,37 +710,61 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	}
 #endif
 
-#if 0 //...TBD
-        if (cfg->g_aa_global_enabled && hardware->h_aa_enabled) {
-            int aasdki_disc_data_set(uint32_t port_id, int elem_type, 
-                                     uint16_t mgmt_vlan, uint8_t *sys_id);
-            /* local port that frame was received on */
-            if (aasdki_disc_data_set(hardware->h_ifindex, 
-                                      port->p_element.type, 
-                                      port->p_element.mgmt_vlan, 
-                                      (uint8_t *)&port->p_element.system_id)) {
-                log_warn("decode","%s: aasdki_disc_data_set failed!",__FUNCTION__);
-                return;
-            }
-            log_info("decode",
-                     "%s: aasdki_disc_data_set port_id=%d elem.type=%d elem.vlan=%d %d<<<<<<<<<<<",
-                     __FUNCTION__, 
-                     hardware->h_ifindex, 
-                     port->p_element.type, 
-                     port->p_element.mgmt_vlan,
-                     hardware->h_aa_notify);
-            hardware->h_aa_notify = false;
-#ifdef AA_SDK_LATER
-//            struct lldpd_aa_isid_vlan_map_data *asgn = NULL;
-            /* loop thru the isid/vlan assignments */
-            TAILQ_FOREACH(asgn, &port->p_isid_vlan_maps, m_entries) {
-                if ((aasdki_asng_data_set(port->p_id, asgn->status, asgn->isid, asgn->vlan)) != AA_SDK_ENONE) {
-                    log_debug("decode","%s: aasdki_asng_data_set failed!",__FUNCTION__);
-                    return;
-                }
-            }
-#endif
-        }
+#ifdef ENABLE_AA
+	if (cfg->g_aa_global_enabled && hardware->h_aa_enabled) {
+	    struct lldpd_aa_isid_vlan_maps_tlv *vlan_isid_map;
+	    uint32_t isid = 0;
+	    int aasdki_asgn_data_set(uint32_t port_id, int status,
+                                    uint32_t isid, uint16_t vlan);
+	    int aasdki_disc_data_set(uint32_t port_id, int elem_type, 
+				    uint16_t mgmt_vlan, uint8_t *sys_id);
+	    uint32_t array_to_int(uint8_t *array, size_t len);
+	    
+	    /* local port that frame was received on */
+	    if (aasdki_disc_data_set(hardware->h_ifindex, 
+				    port->p_element.type, 
+				    port->p_element.mgmt_vlan, 
+				    (uint8_t *)&port->p_element.system_id)) {
+		log_warn("decode","%s: aasdki_disc_data_set failed!",
+			 __FUNCTION__);
+		return;
+	    }
+	    log_info("decode",
+		    "%s: aasdki_disc_data_set port_id=%d elem.type=%d "
+		    "elem.vlan=%d %d<<<<<<<<<<<",
+		    __FUNCTION__, 
+		    hardware->h_ifindex, 
+		    port->p_element.type, 
+		    port->p_element.mgmt_vlan,
+		    hardware->h_aa_notify);
+	    hardware->h_aa_notify = false;
+
+	    /* push remote port isid-vlan mappings to AA */
+	    TAILQ_FOREACH (vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
+
+		isid = array_to_int(vlan_isid_map->isid_vlan_data.isid, 
+				    sizeof(vlan_isid_map->isid_vlan_data.isid));
+
+		log_info("decode",
+			"%s: aasdki_asgn_data_set port_id=%u "
+			"map.isid=%u map.vlan=%hu map.status=%d <<<<<<<<<<<",
+			__FUNCTION__, 
+			hardware->h_ifindex, 
+			isid,
+			vlan_isid_map->isid_vlan_data.vlan,
+			vlan_isid_map->isid_vlan_data.status);
+
+		if (aasdki_asgn_data_set(hardware->h_ifindex,  
+					vlan_isid_map->isid_vlan_data.status, 
+					isid,
+					vlan_isid_map->isid_vlan_data.vlan))
+		{
+		    log_debug("decode","%s: aasdki_asng_data_set failed!", 
+				__FUNCTION__);
+		    return;
+		}
+	    }
+	}
 #endif
 
         log_debug("decode","%s: end of function.",__FUNCTION__);
