@@ -825,10 +825,15 @@ lldpd_get_os_release(void) {
 	char *key, *val;
 	char *ptr1 = release;
 
-	FILE *fp = fopen("/etc/os-release", "r");
 	log_debug("localchassis", "grab OS release");
+	FILE *fp = fopen("/etc/os-release", "r");
 	if (!fp) {
-		log_info("localchassis", "could not open /etc/os-release");
+		log_debug("localchassis", "could not open /etc/os-release");
+		fp = fopen("/usr/lib/os-release", "r");
+	}
+	if (!fp) {
+		log_info("localchassis",
+		    "could not open either /etc/os-release or /usr/lib/os-release");
 		return NULL;
 	}
 
@@ -1144,6 +1149,10 @@ static int
 lldpd_routing_enabled(struct lldpd *cfg)
 {
 	int routing;
+
+	if ((LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_ROUTER) == 0)
+		return 0;
+
 #ifndef ENABLE_AA
 	if ((routing = interfaces_routing_enabled(cfg)) == -1) {
 		log_debug("localchassis", "unable to check if routing is enabled");
@@ -1220,7 +1229,8 @@ lldpd_update_localchassis(struct lldpd *cfg)
 	else
 		LOCAL_CHASSIS(cfg)->c_med_sw = strdup("Unknown");
 #endif
-	if (LOCAL_CHASSIS(cfg)->c_cap_enabled == 0)
+	if ((LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_STATION) &&
+		(LOCAL_CHASSIS(cfg)->c_cap_enabled == 0))
 		LOCAL_CHASSIS(cfg)->c_cap_enabled = LLDP_CAP_STATION;
 
 	/* Set chassis ID if needed. This is only done if chassis ID
@@ -1458,9 +1468,9 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	int ch, debug = 3;
 #ifdef USE_SNMP
 	int snmp = 0;
-	char *agentx = NULL;	/* AgentX socket */
+	const char *agentx = NULL;	/* AgentX socket */
 #endif
-	char *ctlname = LLDPD_CTL_SOCKET;
+	const char *ctlname = LLDPD_CTL_SOCKET;
 	char *mgmtp = NULL;
 	char *cidp = NULL;
 	char *interfaces = NULL;
@@ -1525,16 +1535,32 @@ lldpd_main(int argc, char *argv[], char *envp[])
 			receiveonly = 1;
 			break;
 		case 'm':
-			mgmtp = optarg;
+			if (mgmtp) {
+				fprintf(stderr, "-m can only be used once\n");
+				usage();
+			}
+			mgmtp = strdup(optarg);
 			break;
 		case 'u':
+			if (ctlname) {
+				fprintf(stderr, "-u can only be used once\n");
+				usage();
+			}
 			ctlname = optarg;
 			break;
 		case 'I':
-			interfaces = optarg;
+			if (interfaces) {
+				fprintf(stderr, "-I can only be used once\n");
+				usage();
+			}
+			interfaces = strdup(optarg);
 			break;
 		case 'C':
-			cidp = optarg;
+			if (cidp) {
+				fprintf(stderr, "-C can only be used once\n");
+				usage();
+			}
+			cidp = strdup(optarg);
 			break;
 		case 'L':
 			if (strlen(optarg)) lldpcli = optarg;
@@ -1566,6 +1592,10 @@ lldpd_main(int argc, char *argv[], char *envp[])
 			snmp = 1;
 			break;
 		case 'X':
+			if (agentx) {
+				fprintf(stderr, "-X can only be used once\n");
+				usage();
+			}
 			snmp = 1;
 			agentx = optarg;
 			break;
@@ -1577,11 +1607,17 @@ lldpd_main(int argc, char *argv[], char *envp[])
 #endif
 			break;
                 case 'S':
-			free(descr_override);
+			if (descr_override) {
+				fprintf(stderr, "-S can only be used once\n");
+				usage();
+			}
                         descr_override = strdup(optarg);
                         break;
 		case 'P':
-			free(platform_override);
+			if (platform_override) {
+				fprintf(stderr, "-P can only be used once\n");
+				usage();
+			}
 			platform_override = strdup(optarg);
 			break;
 		case 'H':

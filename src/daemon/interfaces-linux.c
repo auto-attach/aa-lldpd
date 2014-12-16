@@ -446,6 +446,8 @@ iface_bond_init(struct lldpd *cfg, struct lldpd_hardware *hardware)
 	interfaces_setup_multicast(cfg, hardware->h_ifname, 0);
 
 	/* Then, we open a raw interface for the master */
+	log_debug("interfaces", "bonded device %s has master %s(%d)",
+	    hardware->h_ifname, master->name, master->index);
 	if ((fd = priv_iface_init(master->index, master->name)) == -1) {
 		close(hardware->h_sendfd);
 		return -1;
@@ -551,12 +553,14 @@ iflinux_handle_bond(struct lldpd *cfg, struct interfaces_device_list *interfaces
 				    iface->name);
 				continue;
 			}
-			hardware->h_data = calloc(1, sizeof(struct bond_master));
-			if (!hardware->h_data) {
+			bmaster = hardware->h_data = calloc(1, sizeof(struct bond_master));
+			if (!bmaster) {
 				log_warn("interfaces", "not enough memory");
 				lldpd_hardware_cleanup(cfg, hardware);
 				continue;
 			}
+			bmaster->index = master->index;
+			strlcpy(bmaster->name, master->name, IFNAMSIZ);
 			if (iface_bond_init(cfg, hardware) != 0) {
 				log_warn("interfaces", "unable to initialize %s",
 				    hardware->h_ifname);
@@ -774,8 +778,10 @@ interfaces_update(struct lldpd *cfg)
 
 	/* Add missing bits to list of interfaces */
 	iflinux_add_driver(cfg, interfaces);
-	iflinux_add_wireless(cfg, interfaces);
-	iflinux_add_bridge(cfg, interfaces);
+	if (LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_WLAN)
+		iflinux_add_wireless(cfg, interfaces);
+	if (LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_BRIDGE)
+		iflinux_add_bridge(cfg, interfaces);
 	iflinux_add_bond(cfg, interfaces);
 	iflinux_add_vlan(cfg, interfaces);
 	iflinux_add_physical(cfg, interfaces);

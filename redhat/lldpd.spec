@@ -28,10 +28,10 @@
 
 Summary: Implementation of IEEE 802.1ab (LLDP)
 Name: lldpd
-Version: 0.7.10
+Version: 0.7.11
 Release: 1%{?dist}
 License: MIT
-Group: System Environment/Daemons
+Group: System/Management
 URL: http://vincentbernat.github.com/lldpd/
 Source0: http://media.luffy.cx/files/lldpd/%{name}-%{version}.tar.gz
 Source1: lldpd.init%{?suse_version:.suse}
@@ -75,11 +75,17 @@ protocol. It also handles LLDP-MED extension.
 
 %package devel
 Summary:  Implementation of IEEE 802.1ab - Tools and header files for developers
-Group:    Development/Libraries
+Group:    Development/Libraries/C
 Requires: lldpd = %{version}-%{release}
 
 %description devel
 This package is required to develop alternate clients for lldpd.
+
+LLDP is an industry standard protocol designed to supplant proprietary
+Link-Layer protocols such as Extreme EDP (Extreme Discovery Protocol)
+and CDP (Cisco Discovery Protocol). The goal of LLDP is to provide an
+inter-vendor compatible mechanism to deliver Link-Layer notifications
+to adjacent network devices.
 
 %prep
 %setup -q
@@ -130,10 +136,14 @@ This package is required to develop alternate clients for lldpd.
    --with-privsep-group=%lldpd_group \
    --with-privsep-chroot=%lldpd_chroot \
    --with-systemdsystemunitdir=no \
-   --prefix=/usr --localstatedir=%{_localstatedir} --sysconfdir=/etc --libdir=%{_libdir} \
+   --with-sysusersdir=no \
+   --prefix=%{_usr} \
+   --localstatedir=%{_localstatedir} \
+   --sysconfdir=%{_sysconfdir} \
+   --libdir=%{_libdir} \
    --docdir=%{_docdir}/lldpd
 
-[ -f /usr/include/net-snmp/agent/struct.h ] || touch src/struct.h
+[ -f %{_includedir}/net-snmp/agent/struct.h ] || touch src/struct.h
 make %{?_smp_mflags}
 
 %install
@@ -204,13 +214,16 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/lldpctl
 %{_sbindir}/lldpcli
 %{_libdir}/liblldpctl.so.*
+%{_datadir}/zsh
+%{_sysconfdir}/bash_completion.d
 %doc %{_mandir}/man8/lldp*
-%dir %attr(750,root,root) %lldpd_chroot
+%dir %attr(750,root,root) %ghost %lldpd_chroot
+%config %{_sysconfdir}/lldpd.d
 %config %attr(755,root,root) %{_initrddir}/lldpd
 %if 0%{?suse_version}
-%attr(644,root,root) /var/adm/fillup-templates/sysconfig.lldpd
+%attr(644,root,root) %{_var}/adm/fillup-templates/sysconfig.lldpd
 %else
-%config(noreplace) /etc/sysconfig/lldpd
+%config(noreplace) %{_sysconfdir}/sysconfig/lldpd
 %endif
 
 %files devel
@@ -223,6 +236,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_includedir}/lldp-const.h
 
 %changelog
+* Wed Oct 08 2014 Vincent Bernat <bernat@luffy.cx> - 0.7.11-1
+- New upstream version.
+- Completion for bash and zsh.
+
 * Mon Jul 21 2014 Vincent Bernat <bernat@luffy.cx> - 0.7.10-1
 - New upstream version.
 
@@ -232,7 +249,7 @@ rm -rf $RPM_BUILD_ROOT
 * Sun Apr 13 2014 Vincent Bernat <bernat@luffy.cx> - 0.7.8-1
 - New upstream version.
 
-* Fri Nov 10 2013 Vincent Bernat <bernat@luffy.cx> - 0.7.7-1
+* Sun Nov 10 2013 Vincent Bernat <bernat@luffy.cx> - 0.7.7-1
 - New upstream version.
 
 * Fri Jul 12 2013 Vincent Bernat <bernat@luffy.cx> - 0.7.6-1
@@ -255,7 +272,7 @@ rm -rf $RPM_BUILD_ROOT
 - Requires readline-devel.
 - Ships lldpcli.
 
-* Wed Sep 27 2012 Vincent Bernat <bernat@luffy.cx> - 0.6.1-1
+* Thu Sep 27 2012 Vincent Bernat <bernat@luffy.cx> - 0.6.1-1
 - New upstream version
 - Do not require libevent, use embedded copy.
 - Provide a -devel package.

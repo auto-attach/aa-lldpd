@@ -15,14 +15,14 @@ AC_INIT([lldpd],
 
 AC_CONFIG_SRCDIR([src/log.c])
 AC_CONFIG_HEADER([config.h])
-AC_CONFIG_FILES([Makefile src/Makefile src/compat/Makefile src/daemon/Makefile
-			  src/lib/Makefile src/lib/lldpctl.pc src/client/Makefile
-			  tests/Makefile])
-AC_CONFIG_FILES([osx/Makefile osx/distribution.xml osx/im.bernat.lldpd.plist])
-AC_CONFIG_FILES([osx/scripts/preinstall], [chmod +x osx/scripts/preinstall])
-AC_CONFIG_FILES([osx/scripts/postinstall], [chmod +x osx/scripts/postinstall])
-AC_CONFIG_FILES([src/daemon/lldpd.service])
-AC_CONFIG_FILES([src/daemon/lldpd.8 src/client/lldpcli.8])
+AC_CONFIG_FILES([Makefile
+                 src/Makefile
+                 src/compat/Makefile
+                 src/daemon/Makefile
+		 src/lib/Makefile
+                 src/client/Makefile
+	         tests/Makefile
+                 osx/Makefile])
 AC_CONFIG_MACRO_DIR([m4])
 AC_SUBST([CONFIGURE_ARGS], [$ac_configure_args])
 
@@ -224,6 +224,13 @@ lldp_ARG_WITH([systemdsystemunitdir], [Directory for systemd service files],
 AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 AM_CONDITIONAL(HAVE_SYSTEMDSYSTEMUNITDIR,
     [test -n "$with_systemdsystemunitdir" -a "x$with_systemdsystemunitdir" != xno ])
+
+# sysusers
+lldp_ARG_WITH([sysusersdir], [Directory for sysusers files],
+              [$($PKG_CONFIG --variable=sysusersdir systemd 2> /dev/null)])
+AC_SUBST([sysusersdir], [$with_sysusersdir])
+AM_CONDITIONAL(HAVE_SYSUSERSDIR,
+    [test -n "$with_sysusersdir" -a "x$with_sysusersdir" != xno ])
 
 # Systemtap/DTrace
 lldp_SYSTEMTAP

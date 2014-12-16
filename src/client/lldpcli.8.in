@@ -174,11 +174,24 @@ system name is found from the resolved value of
 .Ic uname -n .
 .Ed
 
+.Cd unconfigure
+.Cd system hostname
+.Bd -ragged -offset XXXXXX
+Do not override system hostname and restore the use of the node name.
+.Ed
+
 .Cd configure
 .Cd system description Ar description
 .Bd -ragged -offset XXXXXX
 Override chassis description with the provided value instead of using
 kernel name, node name, kernel version, build date and architecture.
+.Ed
+
+.Cd unconfigure
+.Cd system description
+.Bd -ragged -offset XXXXXX
+Do not override chassis description and use a value computed from node
+name, kernel name, kernel version, build date and architecture instead.
 .Ed
 
 .Cd configure
@@ -188,16 +201,25 @@ Override platform description with the provided value instead of using
 kernel name. This value is currently only used for CDP.
 .Ed
 
+.Cd unconfigure
+.Cd system platform
+.Bd -ragged -offset XXXXXX
+Do not override platform description and use the kernel name. This
+option undoes the previous one.
+.Ed
+
 .Cd configure
 .Cd system interface pattern Ar pattern
 .Bd -ragged -offset XXXXXX
-Set the pattern of valid interfaces to use. When not set,
+Specify which interface to listen to. Without this option,
 .Nm lldpd
-will listen on all available interfaces. This option can use
+will listen on all available physical interfaces. This option can use
 wildcards. Several interfaces can be specified separated by commas.
 It is also possible to blacklist an interface by suffixing it with an
-exclamation mark. When an interface is both specified with and without
-an exclamation mark, it is blacklisted. For example, with
+exclamation mark. It is possible to whitelist an interface by
+suffixing it with two exclamation marks. A whitelisted interface beats
+a blacklisted interfaces which beats a simple matched interface. For
+example, with
 .Em eth*,!eth1,!eth2
 .Nm lldpd
 will only listen to interfaces starting by
@@ -206,6 +228,23 @@ with the exception of
 .Em eth1
 and
 .Em eth2 .
+While with
+.Em *,!eth*,!!eth1
+.Nm
+will listen to all interfaces, except interfaces starting by
+.Em eth
+with the exception of
+.Em eth1 .
+When an exact match is found, it will circumvent some tests. For example, if
+.Em eth0.12
+is specified, it will be accepted even if this is a VLAN interface.
+.Ed
+
+.Cd unconfigure
+.Cd system interface pattern
+.Bd -ragged -offset XXXXXX
+Remove any previously configured interface pattern and listen to all
+physical interafces. This option undoes the previous one.
 .Ed
 
 .Cd configure
@@ -216,6 +255,13 @@ this option will enable
 .Nm lldpd
 to override this description with the name of the peer neighbor if one
 is found or with the number of neighbors found.
+.Ed
+
+.Cd unconfigure
+.Cd system interface descripton
+.Bd -ragged -offset XXXXXX
+Do not update interface description with the name of the peer
+neighbor. This option undoes the previous one.
 .Ed
 
 .Cd configure
@@ -259,6 +305,13 @@ only negative patterns are provided, only one IPv4 and one IPv6
 addresses are chosen. Otherwise, many of them can be selected. If you
 want to blacklist IPv6 addresses, you can use
 .Em !*:* .
+.Ed
+
+.Cd unconfigure
+.Cd system ip management pattern
+.Bd -ragged -offset XXXXXX
+Unset any specific pattern for matching management addresses. This
+option undoes the previous one.
 .Ed
 
 .Cd configure

@@ -1,3 +1,22 @@
+lldpd (0.7.12)
+  * Features:
+    + Interface pattern, management pattern, system description,
+      system platform and system hostname can be unconfigured to their
+      default values.
+  * Fix:
+    + Don't complain when parsing a commented line.
+    + Correctly persist configuration changes for "system interface
+      promiscuous", "system interface description" "med fast-start
+      enable", "pause" and "resume".
+    + Fix listening on bond devices for old kernels (< 2.6.27).
+
+lldpd (0.7.11)
+  * Features:
+    + Ship bash and zsh completion.
+    + Abort when some command-line options are repeated.
+  * Fix:
+    + Handle correctly read failures in liblldpctl.
+
 lldpd (0.7.10)
   * Features:
     + Ability to set promiscuous mode to work around bugs of some

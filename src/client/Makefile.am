@@ -39,3 +39,19 @@ lldpcli_SOURCES += jsonc_writer.c
 lldpcli_CFLAGS  += @JSONC_CFLAGS@
 lldpcli_LDADD   += @JSONC_LIBS@
 endif
+
+# Completions
+bashcompletiondir = $(sysconfdir)/bash_completion.d
+dist_bashcompletion_DATA = lldpcli.bash-completion
+zshcompletiondir = $(datadir)/zsh/vendor-completions
+dist_zshcompletion_DATA = _lldpcli
+
+# Default configuration
+lldpdconfdir = $(sysconfdir)/lldpd.d
+dist_lldpdconf_DATA = README.conf
+
+TEMPLATES  = lldpcli.8
+EXTRA_DIST = lldpcli.8.in
+CLEANFILES = $(TEMPLATES)
+lldpcli.8: lldpcli.8.in
+include $(top_srcdir)/edit.am

@@ -293,9 +293,9 @@ map_lookup(lldpctl_map_t *list, int n)
 static int
 map_reverse_lookup(lldpctl_map_t *list, const char *string)
 {
-	unsigned int i;
+	if (!string) return -1;
 
-	for (i = 0; list[i].string != NULL; i++) {
+	for (unsigned int i = 0; list[i].string != NULL; i++) {
 		if (!strcasecmp(list[i].string, string))
 			return list[i].value;
 	}
@@ -392,76 +392,85 @@ _lldpctl_atom_get_str_config(lldpctl_atom_t *atom, lldpctl_key_t key)
 	return res?res:"";
 }
 
+static struct _lldpctl_atom_config_t*
+__lldpctl_atom_set_str_config(struct _lldpctl_atom_config_t *c,
+    char **local, char **global,
+    const char *value) {
+	if (value) {
+		char *aval = NULL;
+		size_t len = strlen(value) + 1;
+		aval = _lldpctl_alloc_in_atom((lldpctl_atom_t *)c, len);
+		if (!aval) return NULL;
+		memcpy(aval, value, len);
+		*local = aval;
+		free(*global); *global = strdup(aval);
+	} else {
+		free(*global);
+		*local = *global = NULL;
+	}
+	return c;
+}
+
 static lldpctl_atom_t*
 _lldpctl_atom_set_str_config(lldpctl_atom_t *atom, lldpctl_key_t key,
     const char *value)
 {
 	struct _lldpctl_atom_config_t *c =
 	    (struct _lldpctl_atom_config_t *)atom;
-	struct lldpd_config config = {};
-	char *iface_pattern = NULL, *mgmt_pattern = NULL;
-	char *description = NULL;
-	int rc, len;
-
-	len = strlen(value) + 1;
+	struct lldpd_config config;
+	memcpy(&config, c->config, sizeof(struct lldpd_config));
+	char *canary = NULL;
+	int rc;
 
 	switch (key) {
 	case lldpctl_k_config_iface_pattern:
-		iface_pattern = _lldpctl_alloc_in_atom(atom, strlen(value) + 1);
-		if (!iface_pattern)
+		if (!__lldpctl_atom_set_str_config(c,
+			&config.c_iface_pattern, &c->config->c_iface_pattern,
+			value))
 			return NULL;
-		memcpy(iface_pattern, value, len);
-		config.c_iface_pattern = iface_pattern;
-		free(c->config->c_iface_pattern);
-		c->config->c_iface_pattern = strdup(iface_pattern);
 		break;
 	case lldpctl_k_config_mgmt_pattern:
-		mgmt_pattern = _lldpctl_alloc_in_atom(atom, strlen(value) + 1);
-		if (!mgmt_pattern)
+		if (!__lldpctl_atom_set_str_config(c,
+			&config.c_mgmt_pattern, &c->config->c_mgmt_pattern,
+			value))
 			return NULL;
-		memcpy(mgmt_pattern, value, len);
-		config.c_mgmt_pattern = mgmt_pattern;
-		free(c->config->c_mgmt_pattern);
-		c->config->c_mgmt_pattern = strdup(mgmt_pattern);
 		break;
 	case lldpctl_k_config_description:
-		description = _lldpctl_alloc_in_atom(atom, strlen(value) + 1);
-		if (!description)
+		if (!__lldpctl_atom_set_str_config(c,
+			&config.c_description, &c->config->c_description,
+			value))
 			return NULL;
-		memcpy(description, value, len);
-		config.c_description = description;
-		free(c->config->c_description);
-		c->config->c_description = strdup(description);
 		break;
 	case lldpctl_k_config_platform:
-		description = _lldpctl_alloc_in_atom(atom, strlen(value) + 1);
-		if (!description)
+		if (!__lldpctl_atom_set_str_config(c,
+			&config.c_platform, &c->config->c_platform,
+			value))
 			return NULL;
-		memcpy(description, value, len);
-		config.c_platform = description;
-		free(c->config->c_platform);
-		c->config->c_description = strdup(description);
 		break;
 	case lldpctl_k_config_hostname:
-		description = _lldpctl_alloc_in_atom(atom, strlen(value) + 1);
-		if (!description)
+		if (!__lldpctl_atom_set_str_config(c,
+			&config.c_hostname, &c->config->c_hostname,
+			value))
 			return NULL;
-		memcpy(description, value, len);
-		config.c_hostname = description;
-		free(c->config->c_hostname);
-		c->config->c_hostname = strdup(description);
 		break;
 	default:
 		SET_ERROR(atom->conn, LLDPCTL_ERR_NOT_EXIST);
 		return NULL;
 	}
 
+	if (asprintf(&canary, "%d%s", key, value?value:"(NULL)") == -1) {
+		SET_ERROR(atom->conn, LLDPCTL_ERR_NOMEM);
+		return NULL;
+	}
 	rc = _lldpctl_do_something(atom->conn,
 	    CONN_STATE_SET_CONFIG_SEND, CONN_STATE_SET_CONFIG_RECV,
-	    NULL,
+	    canary,
 	    SET_CONFIG, &config, &MARSHAL_INFO(lldpd_config),
 	    NULL, NULL);
+	free(canary);
 	if (rc == 0) return atom;
+
+#undef SET_STR
 
 	return NULL;
 }
@@ -504,9 +513,11 @@ _lldpctl_atom_set_int_config(lldpctl_atom_t *atom, lldpctl_key_t key,
     long int value)
 {
 	int rc;
+	char *canary = NULL;
 	struct _lldpctl_atom_config_t *c =
 	    (struct _lldpctl_atom_config_t *)atom;
-	struct lldpd_config config = {};
+	struct lldpd_config config;
+	memcpy(&config, c->config, sizeof(struct lldpd_config));
 
 	switch (key) {
 	case lldpctl_k_config_paused:
@@ -524,8 +535,7 @@ _lldpctl_atom_set_int_config(lldpctl_atom_t *atom, lldpctl_key_t key,
 		break;
 #ifdef ENABLE_LLDPMED
 	case lldpctl_k_config_fast_start_enabled:
-		config.c_enable_fast_start =  value?1:2;
-		c->config->c_enable_fast_start = value;
+		config.c_enable_fast_start = c->config->c_enable_fast_start = value;
 		break;
 	case lldpctl_k_config_fast_start_interval:
 		config.c_tx_fast_interval = c->config->c_tx_fast_interval = value;
@@ -548,11 +558,16 @@ _lldpctl_atom_set_int_config(lldpctl_atom_t *atom, lldpctl_key_t key,
 		return NULL;
 	}
 
+	if (asprintf(&canary, "%d%ld", key, value) == -1) {
+		SET_ERROR(atom->conn, LLDPCTL_ERR_NOMEM);
+		return NULL;
+	}
 	rc = _lldpctl_do_something(atom->conn,
 	    CONN_STATE_SET_CONFIG_SEND, CONN_STATE_SET_CONFIG_RECV,
-	    NULL,
+	    canary,
 	    SET_CONFIG, &config, &MARSHAL_INFO(lldpd_config),
 	    NULL, NULL);
+	free(canary);
 	if (rc == 0) return atom;
 	return NULL;
 }
@@ -809,6 +824,7 @@ _lldpctl_atom_set_atom_port(lldpctl_atom_t *atom, lldpctl_key_t key, lldpctl_ato
 	struct lldpd_hardware *hardware = p->hardware;
 	struct lldpd_port_set set = {};
 	int rc;
+	char *canary;
 
 #ifdef ENABLE_DOT3
 	struct _lldpctl_atom_dot3_power_t *dpow;
@@ -870,11 +886,17 @@ _lldpctl_atom_set_atom_port(lldpctl_atom_t *atom, lldpctl_key_t key, lldpctl_ato
 	}
 
 	set.ifname = hardware->h_ifname;
+
+	if (asprintf(&canary, "%d%p%s", key, value, set.ifname) == -1) {
+		SET_ERROR(atom->conn, LLDPCTL_ERR_NOMEM);
+		return NULL;
+	}
 	rc = _lldpctl_do_something(atom->conn,
 	    CONN_STATE_SET_PORT_SEND, CONN_STATE_SET_PORT_RECV,
-	    value,
+	    canary,
 	    SET_PORT, &set, &MARSHAL_INFO(lldpd_port_set),
 	    NULL, NULL);
+	free(canary);
 	if (rc == 0) return atom;
 	return NULL;
 }
@@ -2035,7 +2057,7 @@ _lldpctl_atom_set_str_med_location(lldpctl_atom_t *atom, lldpctl_key_t key,
 	struct _lldpctl_atom_med_location_t *mloc =
 	    (struct _lldpctl_atom_med_location_t *)atom;
 	struct fp_number fp;
-	char *end;
+	char *end = NULL;
 
 	/* Only local port can be modified */
 	if (mloc->parent->hardware == NULL) {
@@ -2047,7 +2069,7 @@ _lldpctl_atom_set_str_med_location(lldpctl_atom_t *atom, lldpctl_key_t key,
 	case lldpctl_k_med_location_latitude:
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_COORD) goto bad;
 		if (mloc->location->data == NULL || mloc->location->data_len != 16) goto bad;
-		fp = fp_strtofp(value, &end, 9, 25);
+		if (value) fp = fp_strtofp(value, &end, 9, 25);
 		if (!end) goto bad;
 		if (end && *end != '\0') {
 			if (*(end+1) != '\0') goto bad;
@@ -2059,7 +2081,7 @@ _lldpctl_atom_set_str_med_location(lldpctl_atom_t *atom, lldpctl_key_t key,
 	case lldpctl_k_med_location_longitude:
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_COORD) goto bad;
 		if (mloc->location->data == NULL || mloc->location->data_len != 16) goto bad;
-		fp = fp_strtofp(value, &end, 9, 25);
+		if (value) fp = fp_strtofp(value, &end, 9, 25);
 		if (!end) goto bad;
 		if (end && *end != '\0') {
 			if (*(end+1) != '\0') goto bad;
@@ -2071,11 +2093,12 @@ _lldpctl_atom_set_str_med_location(lldpctl_atom_t *atom, lldpctl_key_t key,
 	case lldpctl_k_med_location_altitude:
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_COORD) goto bad;
 		if (mloc->location->data == NULL || mloc->location->data_len != 16) goto bad;
-		fp = fp_strtofp(value, &end, 22, 8);
+		if (value) fp = fp_strtofp(value, &end, 22, 8);
 		if (!end || *end != '\0') goto bad;
 		fp_fptobuf(fp, (unsigned char*)mloc->location->data, 84);
 		return atom;
 	case lldpctl_k_med_location_altitude_unit:
+		if (!value) goto bad;
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_COORD) goto bad;
 		if (mloc->location->data == NULL || mloc->location->data_len != 16) goto bad;
 		if (!strcmp(value, "m"))
@@ -2086,16 +2109,18 @@ _lldpctl_atom_set_str_med_location(lldpctl_atom_t *atom, lldpctl_key_t key,
 			return _lldpctl_atom_set_int_med_location(atom, key,
 			    LLDP_MED_LOCATION_ALTITUDE_UNIT_FLOOR);
 		goto bad;
+		break;
 	case lldpctl_k_med_location_geoid:
 		return _lldpctl_atom_set_int_med_location(atom, key,
 		    map_reverse_lookup(port_med_geoid_map, value));
 	case lldpctl_k_med_location_country:
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_CIVIC) goto bad;
 		if (mloc->location->data == NULL || mloc->location->data_len < 3) goto bad;
-		if (strlen(value) != 2) goto bad;
+		if (!value || strlen(value) != 2) goto bad;
 		memcpy(mloc->location->data + 2, value, 2);
 		return atom;
 	case lldpctl_k_med_location_elin:
+		if (!value) goto bad;
 		if (mloc->location->format != LLDP_MED_LOCFORMAT_ELIN) goto bad;
 		if (mloc->location->data) free(mloc->location->data);
 		mloc->location->data = calloc(1, strlen(value));
@@ -2344,6 +2369,7 @@ _lldpctl_atom_set_str_med_caelement(lldpctl_atom_t *atom, lldpctl_key_t key,
 
 	switch (key) {
 	case lldpctl_k_med_civicaddress_value:
+		if (!value) goto bad;
 		len = strlen(value) + 1;
 		if (len > 251) goto bad;
 		el->value = _lldpctl_alloc_in_atom(atom, len);
