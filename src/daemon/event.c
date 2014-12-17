@@ -27,6 +27,11 @@
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>
 
+#ifdef ENABLE_AASERVER
+#include "aasdk_comm.h"   // for aatrans_comm.h
+#include "aatrans_comm.h" // for aatransi_packet_process
+#endif
+
 #define EVENT_BUFFER 1024
 
 static void
@@ -512,15 +517,37 @@ levent_loop(struct lldpd *cfg)
 static void
 levent_hardware_recv(evutil_socket_t fd, short what, void *arg)
 {
-	struct lldpd_hardware *hardware = arg;
-	struct lldpd *cfg = hardware->h_cfg;
-	(void)what;
-	log_debug("event", "received something for %s",
-	    hardware->h_ifname);
+    struct lldpd_hardware *hardware = arg;
+    struct lldpd *cfg = hardware->h_cfg;
+    (void)what;
+    int n=0;
+    log_debug("event", "received something for %s", hardware->h_ifname);
 #ifndef ENABLE_AA 
-	lldpd_recv(cfg, hardware, fd);
+    lldpd_recv(cfg, hardware, fd);
+#else
+#ifdef ENABLE_AASERVER
+    do
+    {
+        char *buffer = NULL;
+        if ((buffer = (char *)malloc(hardware->h_mtu)) == NULL) {
+            log_warn("receive", "failed to alloc reception buffer");
+            break;
+        }
+        if ((n = hardware->h_ops->recv(cfg, hardware,
+                        fd, buffer,
+                        hardware->h_mtu)) == -1) {
+                log_debug("receive", "discard frame received on %s",
+                        hardware->h_ifname);
+                free(buffer);
+                break;
+        }
+        aatransi_packet_process(buffer,n,hardware->h_ifindex,cfg);
+    }
+    while(0);
 #endif
-	levent_schedule_cleanup(cfg);
+
+#endif
+    levent_schedule_cleanup(cfg);
 }
 
 void
@@ -726,14 +753,32 @@ static void
 levent_send_pdu(evutil_socket_t fd, short what, void *arg)
 {
 	struct lldpd_hardware *hardware = arg;
+        struct lldpd *cfg = hardware->h_cfg;
 	int tx_interval = hardware->h_cfg->g_config.c_tx_interval;
+        size_t pduSize=0;
+        char *packet=NULL;
 
 	log_debug("event", "trigger sending PDU for port %s",
 	    hardware->h_ifname);
 
-#ifndef ENABLE_AA 
-	lldpd_send(hardware);
-#endif
+         if ((packet = (char*)calloc(1, hardware->h_mtu)) == NULL) {
+               log_debug("event", "failed to allocate PDU memory for port %s",
+                             hardware->h_ifname);
+                return;
+         }
+
+        // call aatransi from here
+        pduSize =aatransi_packet_compose(packet,hardware->h_mtu,hardware->h_ifindex,cfg);
+        // OR trigger it from the client SDK timer code
+//	lldpd_send(hardware);
+	if (interfaces_send_helper(cfg, hardware,
+		(char *)packet, pduSize) == -1) {
+		log_warn("lldp", "unable to send packet on real device for %s",
+		    hardware->h_ifname);
+		free(packet);
+		return ;
+	}
+        free(packet);
 
 #ifdef ENABLE_LLDPMED
 	if (hardware->h_tx_fast > 0)

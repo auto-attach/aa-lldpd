@@ -79,6 +79,7 @@ extern const char	*__progname;
 # define __progname "lldpd"
 #endif
 
+
 static void
 usage(void)
 {
@@ -175,7 +176,7 @@ lldpd_alloc_hardware(struct lldpd *cfg, char *name, int index)
 	TAILQ_INIT(&hardware->h_lport.p_pids);
 #endif
 
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 	levent_hardware_init(hardware);
 #endif
 	return hardware;
@@ -217,7 +218,7 @@ lldpd_hardware_cleanup(struct lldpd *cfg, struct lldpd_hardware *hardware)
 	lldpd_port_cleanup(&hardware->h_lport, 1);
 	if (hardware->h_ops && hardware->h_ops->cleanup)
 		hardware->h_ops->cleanup(cfg, hardware);
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 	levent_hardware_release(hardware);
 #endif
 	free(hardware);
@@ -298,15 +299,12 @@ static void
 notify_clients_deletion(struct lldpd_hardware *hardware,
     struct lldpd_port *rport)
 {
-/*...TBD can't find the definition for LLDPD_NEIGHBOR_DELETE, removing for now */
-#ifndef ENABLE_AA 
 	TRACE(LLDPD_NEIGHBOR_DELETE(hardware->h_ifname,
 		rport->p_chassis->c_name,
 		rport->p_descr));
+#ifdef ENABLE_AASERVER
 	levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_DELETED,
 	    rport);
-#else
-// TBD: AN - check this
 #endif
 
 #ifdef USE_SNMP
@@ -332,10 +330,8 @@ lldpd_reset_timer(struct lldpd *cfg)
 		/* coverity[suspicious_sizeof]
 		   We intentionally partially memset port */
 		memset(port, 0, sizeof(save));
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 		output_len = lldpd_port_serialize(port, (void**)&output);
-#else
-// TBD: AN - need to find where lldpd_port_serialize comes from
 #endif
 		memcpy(port, save, sizeof(save));
 		if (output_len == -1) {
@@ -351,7 +347,7 @@ lldpd_reset_timer(struct lldpd *cfg)
 			    "change detected for port %s, resetting its timer",
 			    hardware->h_ifname);
 			hardware->h_lport_cksum = cksum;
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 			levent_schedule_pdu(hardware);
 #endif
 		} else {
@@ -374,10 +370,7 @@ lldpd_cleanup(struct lldpd *cfg)
 	     hardware = hardware_next) {
 		hardware_next = TAILQ_NEXT(hardware, h_entries);
 		if (!hardware->h_flags) {
-#ifndef ENABLE_AA 
-/*...TBD can't find the definition for LLDPD_INTERFACES_DELETE, removing for now */
 			TRACE(LLDPD_INTERFACES_DELETE(hardware->h_ifname));
-#endif
 			TAILQ_REMOVE(&cfg->g_hardware, hardware, h_entries);
 			lldpd_remote_cleanup(hardware, notify_clients_deletion, 1);
 			lldpd_hardware_cleanup(cfg, hardware);
@@ -397,7 +390,7 @@ lldpd_cleanup(struct lldpd *cfg)
 	}
 
 	lldpd_count_neighbors(cfg);
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 	levent_schedule_cleanup(cfg);
 #endif
 }
@@ -552,13 +545,11 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 		    hardware->h_ifname);
 		return;
 	}
-#ifndef ENABLE_AA
 	TRACE(LLDPD_FRAME_DECODED(
 		    hardware->h_ifname,
 		    cfg->g_protocols[i].name,
 		    chassis->c_name,
 		    port->p_descr));
-#endif
 	/* Do we already have the same MSAP somewhere? */
 	log_debug("decode", "search for the same MSAP");
 	TAILQ_FOREACH(oport, &hardware->h_rports, p_entries) {
@@ -662,28 +653,22 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 	log_debug("decode", "send notifications for changes on %s",
 	    hardware->h_ifname);
 	if (oport) {
-#ifndef ENABLE_AA 
 		TRACE(LLDPD_NEIGHBOR_UPDATE(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
-#endif
-                // TBD: AN - NEIGHBOR_CHANGE_UPDATED event should be handled?
-#ifndef ENABLE_AA
+#ifdef ENABLE_AASERVER
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_UPDATED, port);
 #endif
 #ifdef USE_SNMP
 		agent_notify(hardware, NEIGHBOR_CHANGE_UPDATED, port);
 #endif
 	} else {
-#ifndef ENABLE_AA 
 		TRACE(LLDPD_NEIGHBOR_NEW(hardware->h_ifname,
 			chassis->c_name,
 			port->p_descr,
 			i));
-#endif
-                // TBD: AN - NEIGHBOR_CHANGE_ADDED event should be handled?
-#ifndef ENABLE_AA
+#ifdef ENABLE_AASERVER
 		levent_ctl_notify(hardware->h_ifname, NEIGHBOR_CHANGE_ADDED, port);
 #endif
 #ifdef USE_SNMP
@@ -970,7 +955,7 @@ lldpd_hide_all(struct lldpd *cfg)
 	}
 }
 
-// TBD: AN - fd is unused since we don't go to hw to recv in OVS world
+
 void
 #ifndef ENABLE_AA 
 lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, int fd)
@@ -979,7 +964,7 @@ lldpd_recv(struct lldpd *cfg, struct lldpd_hardware *hardware, char *buffer, siz
 #endif
 {
 #ifndef ENABLE_AA 
-	char *buffer = NULL;    
+	char *buffer = NULL;
 #endif
 	int n=0;
 #ifdef ENABLE_AA
@@ -1180,12 +1165,15 @@ lldpd_update_localchassis(struct lldpd *cfg)
 		log_debug("localchassis", "use overridden system name `%s`", cfg->g_config.c_hostname);
 		hp = cfg->g_config.c_hostname;
 	} else {
+            hp = "localhost";
+#if 0
 #ifdef ENABLE_AA
 		if ((hp = gethostbyname()) == NULL) // TBD: AN - gethostbyname is not thread-safe
 #else
 		if ((hp = priv_gethostbyname()) == NULL)
 #endif
 			fatal("localchassis", "failed to get system name");
+#endif
 	}
 	free(LOCAL_CHASSIS(cfg)->c_name);
 	free(LOCAL_CHASSIS(cfg)->c_descr);
@@ -1259,10 +1247,30 @@ lldpd_update_localports(struct lldpd *cfg)
 	TAILQ_FOREACH(hardware, &cfg->g_hardware, h_entries)
 	    hardware->h_flags = 0;
 
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 	TRACE(LLDPD_INTERFACES_UPDATE());
 	interfaces_update(cfg);
+	{
+		struct lldpd_chassis *lchassis = LOCAL_CHASSIS(cfg);
+
+		TAILQ_FOREACH(hardware, &cfg->g_hardware, h_entries)
+		{
+			TAILQ_INIT(&hardware->h_lport.p_isid_vlan_maps);
+
+			/* Initialize local Auto Attach element tlv */
+			hardware->h_lport.p_element.type = LLDP_TLV_AA_ELEM_TYPE_SERVER;
+			hardware->h_lport.p_element.mgmt_vlan = 0;
+			memcpy(&hardware->h_lport.p_element.system_id.system_mac,
+				lchassis->c_id, lchassis->c_id_len);
+			hardware->h_lport.p_element.system_id.conn_type =
+				LLDP_TLV_AA_ELEM_CONN_TYPE_SINGLE;
+			hardware->h_lport.p_element.system_id.smlt_id = 0;
+			hardware->h_lport.p_element.system_id.mlt_id[0] = 0;
+			hardware->h_lport.p_element.system_id.mlt_id[1] = 0;
+		}
+	}
 #endif
+ 
 	lldpd_cleanup(cfg);
 	lldpd_reset_timer(cfg);
 }
@@ -1286,14 +1294,15 @@ lldpd_loop(struct lldpd *cfg)
 	lldpd_count_neighbors(cfg);
 }
 
-#ifndef ENABLE_AA 
 static void
 lldpd_exit(struct lldpd *cfg)
 {
 	struct lldpd_hardware *hardware, *hardware_next;
 	log_debug("main", "exit lldpd");
 	close(cfg->g_ctl);
+#ifdef ENABLE_AASERVER
 	priv_ctl_cleanup(cfg->g_ctlname);
+#endif
 	log_debug("main", "cleanup hardware information");
 	for (hardware = TAILQ_FIRST(&cfg->g_hardware); hardware != NULL;
 	     hardware = hardware_next) {
@@ -1303,9 +1312,7 @@ lldpd_exit(struct lldpd *cfg)
 		lldpd_hardware_cleanup(cfg, hardware);
 	}
 }
-#endif
 
-#ifndef ENABLE_AA 
 /**
  * Run lldpcli to configure lldpd.
  *
@@ -1352,7 +1359,6 @@ lldpd_configure(int debug, const char *path, const char *ctlname)
 	/* Should not be here */
 	return -1;
 }
-#endif
 
 struct intint { int a; int b; };
 static const struct intint filters[] = {
@@ -1459,7 +1465,6 @@ lldpd_started_by_systemd(void)
 }
 #endif
 
-#ifndef ENABLE_AA
 int
 lldpd_main(int argc, char *argv[], char *envp[])
 {
@@ -1492,13 +1497,11 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	int receiveonly = 0;
 	int ctl=0;
 
-#ifndef ENABLE_AA
 	/* Non privileged user */
 	struct passwd *user;
 	struct group *group;
 	uid_t uid;
 	gid_t gid;
-#endif
 
 	saved_argv = argv;
 
@@ -1648,7 +1651,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 
 	log_debug("main", "lldpd starting...");
 
-#ifndef ENABLE_AA
+#ifdef ENABLE_AASERVER
 	/* Grab uid and gid to use for priv sep */
 	if ((user = getpwnam(PRIVSEP_USER)) == NULL)
 		fatal("main", "no " PRIVSEP_USER " user for privilege separation");
@@ -1702,7 +1705,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 		if (lldpd_configure(debug, lldpcli, ctlname) == -1)
 			fatal("main", "unable to spawn lldpcli");
 	}
-#endif //ENABLE_AA
+#endif //ENABLE_AASERVER
 
 	/* Daemonization, unless started by upstart, systemd or launchd or debug */
 #ifndef HOST_OS_OSX
@@ -1734,7 +1737,7 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	}
 
 	log_debug("main", "initialize privilege separation");
-#ifndef ENABLE_AA 
+#ifdef ENABLE_AASERVER
 	priv_init(PRIVSEP_CHROOT, ctl, uid, gid);
 #endif
 
@@ -1843,13 +1846,16 @@ lldpd_main(int argc, char *argv[], char *envp[])
 
 	TAILQ_INIT(&cfg->g_hardware);
 	TAILQ_INIT(&cfg->g_chassis);
+
 	TAILQ_INSERT_TAIL(&cfg->g_chassis, lchassis, c_entries);
 	lchassis->c_refcount++; /* We should always keep a reference to local chassis */
 
 	/* Main loop */
 	log_debug("main", "start main loop");
+#ifdef ENABLE_AASERVER
 	levent_loop(cfg);
+#endif
 	lldpd_exit(cfg);
 	return (0);
 }
-#endif
+//#endif
