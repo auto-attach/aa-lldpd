@@ -244,13 +244,16 @@ void		 agent_notify(struct lldpd_hardware *, int, struct lldpd_port *);
 void		 agent_priv_register_domain(void);
 #endif
 
+
 /* client.c */
+#ifndef ENABLE_AA
 int
 client_handle_client(struct lldpd *cfg,
     ssize_t(*send)(void *, int, void *, size_t),
     void *,
     enum hmsg_type type, void *buffer, size_t n,
     int*);
+#endif
 
 /* priv.c */
 void	 priv_init(const char*, int, uid_t, gid_t);

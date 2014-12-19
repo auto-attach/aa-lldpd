@@ -16,13 +16,13 @@ AC_INIT([lldpd],
 AC_CONFIG_SRCDIR([src/log.c])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES([Makefile
-                 src/Makefile
-                 src/compat/Makefile
-                 src/daemon/Makefile
+		 src/Makefile
+		 src/compat/Makefile
+		 src/daemon/Makefile
 		 src/lib/Makefile
-                 src/client/Makefile
-	         tests/Makefile
-                 osx/Makefile])
+		 src/client/Makefile
+		 tests/Makefile
+		 osx/Makefile])
 AC_CONFIG_MACRO_DIR([m4])
 AC_SUBST([CONFIGURE_ARGS], [$ac_configure_args])
 

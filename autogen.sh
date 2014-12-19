@@ -72,7 +72,7 @@ ${AUTORECONF} -vif -I m4 || {
         [ -f "$dir"/configure.ac ] || [ -f "$dir"/configure.in ] || continue
 	echo "autogen.sh: configure `basename $dir`"
 	(cd "$dir" && ${ACLOCAL} -I m4 ${ACLOCAL_FLAGS})
-        (cd "$dir" && check_pkg_config)
+	(cd "$dir" && check_pkg_config)
 	(cd "$dir" && ${LIBTOOLIZE} --automake --copy --force)
 	(cd "$dir" && ${ACLOCAL} -I m4 ${ACLOCAL_FLAGS})
 	(cd "$dir" && ${AUTOCONF} --force)

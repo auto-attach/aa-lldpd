@@ -534,7 +534,7 @@ int lldp_send(struct lldpd *global,
 		}
 	    }
 #else
-	    /* local ports */
+	    /* local port */
 	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
 		 log_info("auto_attach", "Vlan<->Isid local send. Vlan: 0x%X(%d) "
 			  "Isid: 0x%.2X%.2X%.2X(%d)",
