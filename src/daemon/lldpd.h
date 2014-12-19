@@ -23,8 +23,12 @@
 #endif
 
 #if HAVE_LLDP
-#define ENABLE_AA 1
+//#define ENABLE_AA 1
 #define ETHERTYPE_LLDP 0x88cc
+#endif
+
+#ifdef ENABLE_AASERVER
+#define ENABLE_AASERVER_COMMON
 #endif
 
 #ifdef HAVE_VALGRIND_VALGRIND_H
@@ -60,7 +64,8 @@
 #  include "edp.h"
 #endif
 
-#ifndef ENABLE_AA 
+//#ifdef ENABLE_AA 
+#if 0
 #include "../log.h"
 #include "../marshal.h"
 #include "../lldpd-structs.h"
@@ -88,6 +93,7 @@ struct event_base;
 #define LLDPD_FAST_INIT	4
 
 #define USING_AGENTX_SUBAGENT_MODULE 1
+
 
 #ifndef ENABLE_AA
 #define PROTO_SEND_SIG struct lldpd *, struct lldpd_hardware *
@@ -166,11 +172,7 @@ uint32_t	 lldpd_send(struct lldpd_hardware *,char *);
 #endif
 void	 lldpd_loop(struct lldpd *);
 
-#ifdef ENABLE_AA
-int	 lldpd_main(int, char **);
-#else
 int	 lldpd_main(int, char **, char **);
-#endif
 void	 lldpd_update_localports(struct lldpd *);
 void	 lldpd_cleanup(struct lldpd *);
 
@@ -242,7 +244,6 @@ void		 agent_notify(struct lldpd_hardware *, int, struct lldpd_port *);
 void		 agent_priv_register_domain(void);
 #endif
 
-#ifndef ENABLE_AA 
 /* client.c */
 int
 client_handle_client(struct lldpd *cfg,
@@ -250,7 +251,6 @@ client_handle_client(struct lldpd *cfg,
     void *,
     enum hmsg_type type, void *buffer, size_t n,
     int*);
-#endif //ENABLE_AA 
 
 /* priv.c */
 void	 priv_init(const char*, int, uid_t, gid_t);

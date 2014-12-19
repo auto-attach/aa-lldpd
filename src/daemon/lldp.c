@@ -506,30 +506,7 @@ int lldp_send(struct lldpd *global,
 		))
 		    goto toobig;
 
-#ifdef AA_CLIENT_PROXY_TBD
-	    /* local ports */
-	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
-		 log_info("auto_attach", "Vlan<->Isid local send. Vlan: 0x%X(%d) "
-			  "Isid: 0x%.2X%.2X%.2X(%d)",
-				 vlan_isid_map->isid_vlan_data.vlan,
-				 vlan_isid_map->isid_vlan_data.vlan,
-				 vlan_isid_map->isid_vlan_data.isid[0],
-				 vlan_isid_map->isid_vlan_data.isid[1],
-				 vlan_isid_map->isid_vlan_data.isid[2],
-				 (vlan_isid_map->isid_vlan_data.isid[0]<<16) |
-				 (vlan_isid_map->isid_vlan_data.isid[1]<<8) |
-				 (vlan_isid_map->isid_vlan_data.isid[2])
-				 );
-		status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
-		    vlan_isid_map->isid_vlan_data.vlan;
-		if (!(
-		    POKE_UINT16(status_vlan_word) &&
-		    POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
-		      sizeof(vlan_isid_map->isid_vlan_data.isid))
-		    ))
-		    goto toobig;
-	    }
-#endif /* AA_CLIENT_PROXY_TBD */
+#ifdef ENABLE_AASERVER_COMMON
 	    /* remote ports */
 	    TAILQ_FOREACH (rport, &hardware->h_rports, p_entries){
 		if ( !TAILQ_EMPTY(&rport->p_isid_vlan_maps) ) {
@@ -556,6 +533,30 @@ int lldp_send(struct lldpd *global,
 		    }
 		}
 	    }
+#else
+	    /* local ports */
+	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
+		 log_info("auto_attach", "Vlan<->Isid local send. Vlan: 0x%X(%d) "
+			  "Isid: 0x%.2X%.2X%.2X(%d)",
+				 vlan_isid_map->isid_vlan_data.vlan,
+				 vlan_isid_map->isid_vlan_data.vlan,
+				 vlan_isid_map->isid_vlan_data.isid[0],
+				 vlan_isid_map->isid_vlan_data.isid[1],
+				 vlan_isid_map->isid_vlan_data.isid[2],
+				 (vlan_isid_map->isid_vlan_data.isid[0]<<16) |
+				 (vlan_isid_map->isid_vlan_data.isid[1]<<8) |
+				 (vlan_isid_map->isid_vlan_data.isid[2])
+				 );
+		status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
+		    vlan_isid_map->isid_vlan_data.vlan;
+		if (!(
+		    POKE_UINT16(status_vlan_word) &&
+		    POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
+		      sizeof(vlan_isid_map->isid_vlan_data.isid))
+		    ))
+		    goto toobig;
+	    }
+#endif /* ENABLE_AASERVER_COMMON */
 
 	    if (! (POKE_END_LLDP_TLV) )
 		goto toobig;
