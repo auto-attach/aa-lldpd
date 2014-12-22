@@ -260,6 +260,7 @@ lldp_ARG_ENABLE([lldpmed], [LLDP-MED extension], [no])
 lldp_ARG_ENABLE([dot1], [Dot1 extension (VLAN stuff)], [yes])
 lldp_ARG_ENABLE([dot3], [Dot3 extension (PHY stuff)], [yes])
 lldp_ARG_ENABLE([aa],[Auto Attach extension], [yes])
+lldp_ARG_ENABLE([aaserver],[Auto Attach extension Server], [no])
 
 # Oldies
 lldp_ARG_ENABLE([oldies], [compatibility with Linux kernel older than 2.6.18], [no])
@@ -301,6 +302,7 @@ cat <<EOF
   DOT1...........: $enable_dot1
   DOT3...........: $enable_dot3
   AA.............: $enable_aa
+  AA Server......: $enable_aaserver
   XML output.....: ${with_xml-no}
   JSON output....: ${with_json-no}
   Oldies support.: $enable_oldies

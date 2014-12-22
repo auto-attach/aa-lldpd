@@ -244,7 +244,6 @@ void		 agent_notify(struct lldpd_hardware *, int, struct lldpd_port *);
 void		 agent_priv_register_domain(void);
 #endif
 
-
 /* client.c */
 #ifndef ENABLE_AA
 int

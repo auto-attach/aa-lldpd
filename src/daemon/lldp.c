@@ -1193,6 +1193,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 					if( (num_mappings % 5) != 0 ) {
 					    log_info("auto_attach", "malformed vlan-isid mappings tlv received.");
 					} else {
+					    int found=0;
 					    num_mappings /= 5; // Each mapping is 5 Bytes
 					    for( ; num_mappings > 0; num_mappings-- ) {
 						if ((isid_vlan_map = 
@@ -1214,6 +1215,50 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 							sizeof(isid_vlan_map->isid_vlan_data.isid));
 						TAILQ_INSERT_TAIL(&port->p_isid_vlan_maps,
 							isid_vlan_map, m_entries);
+#ifdef ENABLE_AASERVER
+						/* Add the ISID-VLAN Mapping to the h_lport local so that 
+						 * when we send the PDU, it also sends the ISID-VLAN mapping
+						 * in "Accepted" State.
+						*/
+						found=0;
+						do {
+							struct lldpd_aa_isid_vlan_maps_tlv *isid_vlan_map_local = NULL;
+							/* loop through local isid-vlan mappings, check for vlan, & isid
+                                                         * if found, break out of this scope and the do/while.
+							 */
+							TAILQ_FOREACH(isid_vlan_map_local , &hardware->h_lport.p_isid_vlan_maps, m_entries) {
+								if ( isid_vlan_map_local->isid_vlan_data.vlan == isid_vlan_map->isid_vlan_data.vlan &&
+								     (memcmp(isid_vlan_map_local->isid_vlan_data.isid,isid_vlan_map->isid_vlan_data.isid,3) == 0))
+								{
+									found=1;
+									break;
+								}
+							}
+							if ( found) break;
+							isid_vlan_map_local = NULL;
+ 	 						if ((isid_vlan_map_local = (struct lldpd_aa_isid_vlan_maps_tlv *) 
+								calloc(1, sizeof(struct lldpd_aa_isid_vlan_maps_tlv)))
+								== NULL ) {
+								log_warnx("lldp", "unable to allocate memory "
+										"for local aa_isid_vlan_maps_tlv struct");
+							}
+							else {
+								/* set values */
+								isid_vlan_map_local->isid_vlan_data.vlan = 
+									isid_vlan_map->isid_vlan_data.vlan;
+								isid_vlan_map_local->isid_vlan_data.isid[0] = 
+									isid_vlan_map->isid_vlan_data.isid[0];
+								isid_vlan_map_local->isid_vlan_data.isid[1] = 
+									isid_vlan_map->isid_vlan_data.isid[1];
+								isid_vlan_map_local->isid_vlan_data.isid[2] = 
+									isid_vlan_map->isid_vlan_data.isid[2];
+								isid_vlan_map_local->isid_vlan_data.status = 2; // Active
+
+								TAILQ_INSERT_TAIL(&(hardware->h_lport.p_isid_vlan_maps),
+									isid_vlan_map_local, m_entries);
+							}
+						}while(0);
+#endif // ENABLE_AASERVER
 						log_info("auto_attach", "Vlan<->Isid received. Vlan: 0x%X(%d) "
 							 "Isid: 0x%.2X%.2X%.2X(%d)", 
 								isid_vlan_map->isid_vlan_data.vlan,
