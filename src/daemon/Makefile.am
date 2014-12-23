@@ -1,6 +1,6 @@
 AM_CFLAGS = -I $(top_srcdir)/include
 AM_AASDK_ROOTDIR = ../../..
-AM_CFLAGS += -I$(AM_AASDK_ROOTDIR)/common/common  -I$(AM_AASDK_ROOTDIR)/transport/common   -I$(AM_AASDK_ROOTDIR)/platform/posix  -I$(AM_AASDK_ROOTDIR)/common/agent 
+AM_CFLAGS += -I$(AM_AASDK_ROOTDIR)/common/common  -I$(AM_AASDK_ROOTDIR)/transport/common   -I$(AM_AASDK_ROOTDIR)/platform/posix  -I$(AM_AASDK_ROOTDIR)/common/agent -I..
 BUILT_SOURCES =
 CLEANFILES =
 
@@ -39,6 +39,7 @@ liblldpd_la_SOURCES  = \
         $(AM_AASDK_ROOTDIR)/common/common/aasdk_msg_comm.c \
         $(AM_AASDK_ROOTDIR)/transport/common/aatrans_port_comm.c \
         $(AM_AASDK_ROOTDIR)/transport/common/aatrans_elem_comm.c \
+        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_time_comm.c \
         $(AM_AASDK_ROOTDIR)/common/agent/aa_server.c \
         $(AM_AASDK_ROOTDIR)/common/common/aasdk_lldpif_comm.c \
         $(AM_AASDK_ROOTDIR)/common/common/aasdk_elem_comm.c \
