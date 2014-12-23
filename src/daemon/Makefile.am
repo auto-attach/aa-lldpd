@@ -43,6 +43,7 @@ liblldpd_la_SOURCES  = \
         $(AM_AASDK_ROOTDIR)/common/agent/aa_server.c \
         $(AM_AASDK_ROOTDIR)/common/common/aasdk_lldpif_comm.c \
         $(AM_AASDK_ROOTDIR)/common/common/aasdk_elem_comm.c \
+        $(AM_AASDK_ROOTDIR)/common/common/aasdk_asgn_comm.c \
 	probes.d trace.h
 liblldpd_la_CFLAGS   = $(AM_CFLAGS) @LIBEVENT_CFLAGS@
 liblldpd_la_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLLDPCLI_PATH='"$(sbindir)/lldpcli"'
