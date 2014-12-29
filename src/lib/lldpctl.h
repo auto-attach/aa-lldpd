@@ -65,6 +65,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <config.h>
 
 /**
  * @defgroup lldpctl_connection Managing connection to lldpd
@@ -630,6 +631,15 @@ typedef enum {
 	lldpctl_k_port_descr,	   /**< `(S)` The description of this port. */
 	lldpctl_k_port_hidden,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
 
+#ifdef ENABLE_AASERVER
+	lldpctl_k_port_element_type,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+	lldpctl_k_port_element_vlan,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+	lldpctl_k_port_element_sysmac,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+	lldpctl_k_port_element_sysconn,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+	lldpctl_k_port_element_syssmlt,	   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+	lldpctl_k_port_element_sysmltid,   /**< `(I)` Is this port hidden (or should it be displayed?)? */
+#endif
+
 	lldpctl_k_port_dot3_mfs = 1300,	   /**< `(I)` MFS */
 	lldpctl_k_port_dot3_aggregid,   /**< `(I)` Port aggregation ID */
 	lldpctl_k_port_dot3_autoneg_support, /**< `(I)` Autonegotiation support. */
@@ -727,6 +737,9 @@ typedef enum {
 	lldpctl_k_config_tx_hold, /**< `(I,WO)` Transmit hold interval. */
 	lldpctl_k_config_bond_slave_src_mac_type, /**< `(I,WO)` bond slave src mac type. */
 	lldpctl_k_config_lldp_portid_type, /**< `(I,WO)` LLDP PortID TLV Subtype */
+#ifdef ENABLE_AASERVER
+	lldpctl_k_config_lldp_aa_enabled, /**< `(I,WO)` AA Enabled switch */
+#endif
 } lldpctl_key_t;
 
 /**

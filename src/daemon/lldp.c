@@ -511,6 +511,7 @@ int lldp_send(struct lldpd *global,
 	    TAILQ_FOREACH (rport, &hardware->h_rports, p_entries){
 		if ( !TAILQ_EMPTY(&rport->p_isid_vlan_maps) ) {
 		    TAILQ_FOREACH (vlan_isid_map, &rport->p_isid_vlan_maps, m_entries) {
+		       vlan_isid_map->isid_vlan_data.status=2; /* Active */
 		       status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
 					   vlan_isid_map->isid_vlan_data.vlan;
 		       log_info("auto_attach", "Vlan<->Isid remote send. Vlan: 0x%X(%d) "

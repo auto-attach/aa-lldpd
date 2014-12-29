@@ -363,7 +363,7 @@ _lldpctl_atom_free_config(lldpctl_atom_t *atom)
 static const char*
 _lldpctl_atom_get_str_config(lldpctl_atom_t *atom, lldpctl_key_t key)
 {
-	char *res = NULL;
+	char *res = "";
 	struct _lldpctl_atom_config_t *c =
 	    (struct _lldpctl_atom_config_t *)atom;
 	switch (key) {
@@ -389,7 +389,7 @@ _lldpctl_atom_get_str_config(lldpctl_atom_t *atom, lldpctl_key_t key)
 		SET_ERROR(atom->conn, LLDPCTL_ERR_NOT_EXIST);
 		return NULL;
 	}
-	return res?res:"";
+	return res;
 }
 
 static struct _lldpctl_atom_config_t*
@@ -503,6 +503,12 @@ _lldpctl_atom_get_int_config(lldpctl_atom_t *atom, lldpctl_key_t key)
 #endif
 	case lldpctl_k_config_tx_hold:
 		return c->config->c_tx_hold;
+#ifdef ENABLE_AASERVER
+	case lldpctl_k_config_lldp_aa_enabled:
+		return c->config->c_aa_enabled;
+#endif
+
+
 	default:
 		return SET_ERROR(atom->conn, LLDPCTL_ERR_NOT_EXIST);
 	}
@@ -553,6 +559,13 @@ _lldpctl_atom_set_int_config(lldpctl_atom_t *atom, lldpctl_key_t key,
 		config.c_lldp_portid_type = value;
 		c->config->c_lldp_portid_type = value;
 		break;
+#ifdef ENABLE_AASERVER
+	case lldpctl_k_config_lldp_aa_enabled:
+		config.c_aa_enabled = value;
+		c->config->c_aa_enabled = value;
+		break;
+#endif
+
 	default:
 		SET_ERROR(atom->conn, LLDPCTL_ERR_NOT_EXIST);
 		return NULL;
@@ -922,6 +935,39 @@ _lldpctl_atom_get_str_port(lldpctl_atom_t *atom, lldpctl_key_t key)
 
 	/* Local and remote port */
 	switch (key) {
+#ifdef ENABLE_AASERVER
+	case	lldpctl_k_port_element_type:
+        {
+		char *tmpStr = _lldpctl_alloc_in_atom(atom, 5);
+		snprintf(tmpStr,5,"%d",port->p_element.type);
+		return tmpStr;
+	}
+	case	lldpctl_k_port_element_vlan:
+        {
+		char *tmpStr = _lldpctl_alloc_in_atom(atom, 5);
+		snprintf(tmpStr,5,"%d",port->p_element.mgmt_vlan);
+		return tmpStr;
+	}
+	case	lldpctl_k_port_element_sysmac:
+	{
+		char *tmpStr = _lldpctl_alloc_in_atom(atom, 18);
+		snprintf(tmpStr,18,"%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+			port->p_element.system_id.system_mac[0],
+			port->p_element.system_id.system_mac[1],
+			port->p_element.system_id.system_mac[2],
+			port->p_element.system_id.system_mac[3],
+			port->p_element.system_id.system_mac[4],
+			port->p_element.system_id.system_mac[5]
+			);
+		return tmpStr;
+	}
+	case	lldpctl_k_port_element_sysconn:
+		return NULL;
+	case	lldpctl_k_port_element_syssmlt:
+		return NULL;
+	case	lldpctl_k_port_element_sysmltid:
+		return NULL;
+#endif
 	case lldpctl_k_port_protocol:
 		return map_lookup(lldpd_protocol_map, port->p_protocol);
 	case lldpctl_k_port_id_subtype:
@@ -1016,7 +1062,6 @@ _lldpctl_atom_get_str_port(lldpctl_atom_t *atom, lldpctl_key_t key)
 	case lldpctl_k_chassis_med_inventory_asset:
 		return chassis->c_med_asset;
 #endif
-
 	default:
 		SET_ERROR(atom->conn, LLDPCTL_ERR_NOT_EXIST);
 		return NULL;
@@ -1051,6 +1096,7 @@ _lldpctl_atom_get_int_port(lldpctl_atom_t *atom, lldpctl_key_t key)
 			return hardware->h_insert_cnt;
 		case lldpctl_k_delete_cnt:
 			return hardware->h_delete_cnt;
+
 		default: break;
 		}
 	}

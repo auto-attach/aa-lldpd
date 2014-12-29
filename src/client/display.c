@@ -292,6 +292,15 @@ display_port(struct writer *w, lldpctl_atom_t *port, int details)
 	tag_datatag(w, "descr", "PortDescr",
 	    lldpctl_atom_get_str(port, lldpctl_k_port_descr));
 
+#ifdef ENABLE_AASERVER
+	tag_datatag(w, "elemT", "AA Element Type",
+	    lldpctl_atom_get_str(port, lldpctl_k_port_element_type));
+	tag_datatag(w, "elemVlan", "AA Element VLAN",
+	    lldpctl_atom_get_str(port, lldpctl_k_port_element_vlan));
+	tag_datatag(w, "elemSysMac", "AA Elem Sys MAC",
+	    lldpctl_atom_get_str(port, lldpctl_k_port_element_sysmac));
+#endif
+
 	/* Dot3 */
 	if (details == DISPLAY_DETAILS) {
 		tag_datatag(w, "mfs", "MFS",
@@ -775,6 +784,10 @@ display_configuration(lldpctl_conn_t *conn, struct writer *w)
 		"Portid TLV Subtype for lldp frames",
 		lldpctl_atom_get_str(configuration,
 			lldpctl_k_config_lldp_portid_type));
+#ifdef ENABLE_AASERVER
+	tag_datatag(w, "aa", "Auto-Attach",
+	    lldpctl_atom_get_str(configuration, lldpctl_k_config_lldp_aa_enabled));
+#endif
 
 	tag_end(w);
 	tag_end(w);

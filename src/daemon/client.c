@@ -177,6 +177,19 @@ client_handle_set_configuration(struct lldpd *cfg, enum hmsg_type *type,
 		}
 	}
 
+#ifdef ENABLE_AASERVER
+	if (CHANGED(c_aa_enabled) && config->c_aa_enabled != 0) {
+		if (config->c_aa_enabled >= 0 && config->c_aa_enabled <= 1) {
+			log_debug("rpc", "client change aa enable to %d",
+			    config->c_aa_enabled);
+			cfg->g_config.c_aa_enabled = config->c_aa_enabled;
+		}else {
+			log_info("rpc", "Invalid aa_enable value: %d\n",
+			    config->c_aa_enabled);
+		}
+
+	}
+#endif
 	lldpd_config_cleanup(config);
 	free(config);
 

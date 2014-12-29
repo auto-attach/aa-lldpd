@@ -518,9 +518,11 @@ lldpd_decode(struct lldpd *cfg, char *frame, int s,
 #endif
 		    (memcmp(oport->p_lastframe->frame, frame, s) == 0)) {
 			/* Already received the same frame */
-			log_debug("decode", "duplicate frame, no need to decode");
+			log_debug("decode", "duplicate frame detected. ");
 			oport->p_lastupdate = time(NULL);
+#ifndef ENABLE_AASERVER
 			return;
+#endif
 		}
 	}
 

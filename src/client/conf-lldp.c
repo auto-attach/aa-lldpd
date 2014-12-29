@@ -45,6 +45,32 @@ cmd_txdelay(struct lldpctl_conn_t *conn, struct writer *w,
 	return 1;
 }
 
+#ifdef ENABLE_AASERVER
+static int
+cmd_aa_enable(struct lldpctl_conn_t *conn, struct writer *w,
+    struct cmd_env *env, void *arg)
+{
+	log_debug("lldpctl", "set aa enable/disable");
+
+	lldpctl_atom_t *config = lldpctl_get_configuration(conn);
+	if (config == NULL) {
+		log_warnx("lldpctl", "unable to get configuration from lldpd. %s",
+		    lldpctl_last_strerror(conn));
+		return 0;
+	}
+	if (lldpctl_atom_set_str(config,
+		lldpctl_k_config_lldp_aa_enabled, cmdenv_get(env, "aa-enable")) == NULL) {
+		log_warnx("lldpctl", "unable to set aa enable/disable. %s",
+		    lldpctl_last_strerror(conn));
+		lldpctl_atom_dec_ref(config);
+		return 0;
+	}
+	log_info("lldpctl", "aa enable/disable set to new value");
+	lldpctl_atom_dec_ref(config);
+	return 1;
+}
+#endif
+
 static int
 cmd_txhold(struct lldpctl_conn_t *conn, struct writer *w,
     struct cmd_env *env, void *arg)
@@ -149,6 +175,19 @@ register_commands_configure_lldp(struct cmd_node *configure)
 			NULL, cmd_store_env_value, "tx-hold"),
 		NEWLINE, "Set LLDP transmit hold",
 		NULL, cmd_txhold, NULL);
+
+#ifdef ENABLE_AASERVER
+        commands_new(
+		commands_new(
+			commands_new(configure_lldp,
+			    "aa-enable", "Enable or Disable Auto-Attach",
+			    cmd_check_no_env, NULL, "ports"),
+			NULL, "1 for Enable, 0 for Disable",
+			NULL, cmd_store_env_value, "aa-enable"),
+		NEWLINE, "Set LLDP transmit delay",
+		NULL, cmd_aa_enable, NULL);
+#endif
+
 
 	/* Now handle the various portid subtypes we can configure. */
 	struct cmd_node *configure_lldp_portid_type = commands_new(
