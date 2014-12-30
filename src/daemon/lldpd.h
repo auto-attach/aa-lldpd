@@ -168,7 +168,7 @@ void	 lldpd_recv(struct lldpd *, struct lldpd_hardware *, int);
 #ifndef ENABLE_AA
 void	 lldpd_send(struct lldpd_hardware *);
 #else
-uint32_t	 lldpd_send(struct lldpd_hardware *,char *);
+uint32_t lldpd_send(struct lldpd_hardware *,unsigned char *);
 #endif
 void	 lldpd_loop(struct lldpd *);
 
@@ -245,14 +245,12 @@ void		 agent_priv_register_domain(void);
 #endif
 
 /* client.c */
-#ifndef ENABLE_AA
 int
 client_handle_client(struct lldpd *cfg,
     ssize_t(*send)(void *, int, void *, size_t),
     void *,
     enum hmsg_type type, void *buffer, size_t n,
     int*);
-#endif
 
 /* priv.c */
 void	 priv_init(const char*, int, uid_t, gid_t);

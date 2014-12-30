@@ -92,8 +92,6 @@ int lldp_send(struct lldpd *global,
 	struct lldpd_aa_isid_vlan_maps_tlv *vlan_isid_map;
 	u_int8_t msg_auth_digest[LLDP_TLV_AA_ISID_VLAN_DIGEST_LENGTH];
 	struct lldpd_port *rport;
-	bool isid_vlan_tlv_present = false;
-	u_int16_t status_vlan_word;
 #endif
 
 	log_debug("lldp", "send LLDP PDU to %s mtu=%d",

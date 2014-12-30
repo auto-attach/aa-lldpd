@@ -756,12 +756,12 @@ levent_send_pdu(evutil_socket_t fd, short what, void *arg)
         struct lldpd *cfg = hardware->h_cfg;
 	int tx_interval = hardware->h_cfg->g_config.c_tx_interval;
         size_t pduSize=0;
-        char *packet=NULL;
+        unsigned char *packet=NULL;
 
 	log_debug("event", "trigger sending PDU for port %s",
 	    hardware->h_ifname);
 
-         if ((packet = (char*)calloc(1, hardware->h_mtu)) == NULL) {
+         if ((packet = (unsigned char*)calloc(1, hardware->h_mtu)) == NULL) {
                log_debug("event", "failed to allocate PDU memory for port %s",
                              hardware->h_ifname);
                 return;

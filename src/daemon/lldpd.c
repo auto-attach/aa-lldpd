@@ -1044,7 +1044,7 @@ void
 lldpd_send(struct lldpd_hardware *hardware)
 #else
 uint32_t 
-lldpd_send(struct lldpd_hardware *hardware, char *p)
+lldpd_send(struct lldpd_hardware *hardware, unsigned char *p)
 #endif
 {
 	struct lldpd *cfg = hardware->h_cfg;
