@@ -1,6 +1,6 @@
 AM_CFLAGS = -I $(top_srcdir)/include
 AM_AASDK_ROOTDIR = ../../..
-AM_CFLAGS += -I$(AM_AASDK_ROOTDIR)/common/common  -I$(AM_AASDK_ROOTDIR)/transport/common   -I$(AM_AASDK_ROOTDIR)/platform/posix  -I$(AM_AASDK_ROOTDIR)/common/agent -I..
+AM_CFLAGS += -I../../../common/common  -I../../../transport/common   -I../../../platform/posix  -I../../../common/agent -I..
 BUILT_SOURCES =
 CLEANFILES =
 
@@ -22,28 +22,28 @@ liblldpd_la_SOURCES  = \
 	interfaces.c \
 	event.c lldpd.c \
 	pattern.c \
-	$(AM_AASDK_ROOTDIR)/transport/common/aatrans_packet_comm.c \
-        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_trace_comm.c \
-        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_comm.c  \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_comm.c \
-        $(AM_AASDK_ROOTDIR)/common/agent/aa_agent.c \
-        $(AM_AASDK_ROOTDIR)/platform/posix/aasdk_osif_plat.c \
-        $(AM_AASDK_ROOTDIR)/common/agent/aa_public.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_time_comm.c \
-        $(AM_AASDK_ROOTDIR)/common/agent/aa_port.c \
-        $(AM_AASDK_ROOTDIR)/common/agent/aa_snmpagt.c \
-        $(AM_AASDK_ROOTDIR)/platform/posix/aasdk_lldpif_plat.c \
-        $(AM_AASDK_ROOTDIR)/platform/posix/aasdk_time_plat.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_port_comm.c \
-        $(AM_AASDK_ROOTDIR)/platform/posix/aasdk_msgif_plat.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_msg_comm.c \
-        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_port_comm.c \
-        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_elem_comm.c \
-        $(AM_AASDK_ROOTDIR)/transport/common/aatrans_time_comm.c \
-        $(AM_AASDK_ROOTDIR)/common/agent/aa_server.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_lldpif_comm.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_elem_comm.c \
-        $(AM_AASDK_ROOTDIR)/common/common/aasdk_asgn_comm.c \
+	../../../transport/common/aatrans_packet_comm.c \
+    ../../../transport/common/aatrans_trace_comm.c \
+    ../../../transport/common/aatrans_comm.c  \
+    ../../../common/common/aasdk_comm.c \
+    ../../../common/agent/aa_agent.c \
+    ../../../platform/posix/aasdk_osif_plat.c \
+    ../../../common/agent/aa_public.c \
+    ../../../common/common/aasdk_time_comm.c \
+    ../../../common/agent/aa_port.c \
+    ../../../common/agent/aa_snmpagt.c \
+    ../../../platform/posix/aasdk_lldpif_plat.c \
+    ../../../platform/posix/aasdk_time_plat.c \
+    ../../../common/common/aasdk_port_comm.c \
+    ../../../platform/posix/aasdk_msgif_plat.c \
+    ../../../common/common/aasdk_msg_comm.c \
+    ../../../transport/common/aatrans_port_comm.c \
+    ../../../transport/common/aatrans_elem_comm.c \
+    ../../../transport/common/aatrans_time_comm.c \
+    ../../../common/agent/aa_server.c \
+    ../../../common/common/aasdk_lldpif_comm.c \
+    ../../../common/common/aasdk_elem_comm.c \
+    ../../../common/common/aasdk_asgn_comm.c \
 	probes.d trace.h
 liblldpd_la_CFLAGS   = $(AM_CFLAGS) @LIBEVENT_CFLAGS@
 liblldpd_la_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLLDPCLI_PATH='"$(sbindir)/lldpcli"'
