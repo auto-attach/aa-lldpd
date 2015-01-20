@@ -1528,11 +1528,13 @@ lldpd_main(int argc, char *argv[], char *envp[])
 	int receiveonly = 0;
 	int ctl=0;
 
+#ifdef ENABLE_AASERVER
 	/* Non privileged user */
 	struct passwd *user;
 	struct group *group;
 	uid_t uid;
 	gid_t gid;
+#endif
 
 	saved_argv = argv;
 

@@ -23,27 +23,28 @@ liblldpd_la_SOURCES  = \
 	event.c lldpd.c \
 	pattern.c \
 	../../../transport/common/aatrans_packet_comm.c \
-    ../../../transport/common/aatrans_trace_comm.c \
-    ../../../transport/common/aatrans_comm.c  \
-    ../../../common/common/aasdk_comm.c \
-    ../../../common/agent/aa_agent.c \
-    ../../../platform/posix/aasdk_osif_plat.c \
-    ../../../common/agent/aa_public.c \
-    ../../../common/common/aasdk_time_comm.c \
-    ../../../common/agent/aa_port.c \
-    ../../../common/agent/aa_snmpagt.c \
-    ../../../platform/posix/aasdk_lldpif_plat.c \
-    ../../../platform/posix/aasdk_time_plat.c \
-    ../../../common/common/aasdk_port_comm.c \
-    ../../../platform/posix/aasdk_msgif_plat.c \
-    ../../../common/common/aasdk_msg_comm.c \
-    ../../../transport/common/aatrans_port_comm.c \
-    ../../../transport/common/aatrans_elem_comm.c \
-    ../../../transport/common/aatrans_time_comm.c \
-    ../../../common/agent/aa_server.c \
-    ../../../common/common/aasdk_lldpif_comm.c \
-    ../../../common/common/aasdk_elem_comm.c \
-    ../../../common/common/aasdk_asgn_comm.c \
+        ../../../transport/common/aatrans_trace_comm.c \
+        ../../../transport/common/aatrans_comm.c  \
+        ../../../common/common/aasdk_comm.c \
+        ../../../common/agent/aa_agent.c \
+        ../../../apps/lldp/aasdk_lldp.c \
+        ../../../platform/posix/aasdk_osif_plat.c \
+        ../../../common/agent/aa_public.c \
+        ../../../common/common/aasdk_time_comm.c \
+        ../../../common/agent/aa_port.c \
+        ../../../common/agent/aa_snmpagt.c \
+        ../../../platform/posix/aasdk_lldpif_plat.c \
+        ../../../platform/posix/aasdk_time_plat.c \
+        ../../../common/common/aasdk_port_comm.c \
+        ../../../platform/posix/aasdk_msgif_plat.c \
+        ../../../common/common/aasdk_msg_comm.c \
+        ../../../transport/common/aatrans_port_comm.c \
+        ../../../transport/common/aatrans_elem_comm.c \
+        ../../../transport/common/aatrans_time_comm.c \
+        ../../../common/agent/aa_server.c \
+        ../../../common/common/aasdk_lldpif_comm.c \
+        ../../../common/common/aasdk_elem_comm.c \
+        ../../../common/common/aasdk_asgn_comm.c \
 	probes.d trace.h
 liblldpd_la_CFLAGS   = $(AM_CFLAGS) @LIBEVENT_CFLAGS@
 liblldpd_la_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLLDPCLI_PATH='"$(sbindir)/lldpcli"'

@@ -24,6 +24,11 @@
 #include <assert.h>
 #include <arpa/inet.h>
 
+#include "aa_port.h"
+#include "aatrans_comm.h"
+#include "aatrans_port_comm.h"
+
+
 /* Generic ethernet interface initialization */
 /**
  * Enable multicast on the given interface.
@@ -534,10 +539,24 @@ interfaces_helper_physical(struct lldpd *cfg,
 				lldpd_hardware_cleanup(cfg, hardware);
 				continue;
 			}
+
 			hardware->h_ops = ops;
 			hardware->h_mangle = (iface->upper &&
 			    iface->upper->type & IFACE_BOND_T);
 			interfaces_helper_add_hardware(cfg, hardware);
+
+#ifdef ENABLE_AASERVER
+			{
+				aasdk_transport_port_config_t pconf;
+
+				pconf.port_id_subtype=LLDP_PORTID_SUBTYPE_LLADDR;
+				pconf.port_id_len=strlen(hardware->h_ifname);
+				memcpy(pconf.port_id, hardware->h_ifname, pconf.port_id_len);
+				aatransi_port_create(iface->index,&pconf, iface->mtu, iface->name, 
+					hardware->h_ops, hardware->h_sendfd, iface->address);
+			}
+#endif // ENABLE_AASERVER
+
 		} else {
 			if (hardware->h_flags) continue; /* Already seen this time */
 			lldpd_port_cleanup(&hardware->h_lport, 0);

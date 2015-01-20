@@ -27,9 +27,6 @@
 #define ETHERTYPE_LLDP 0x88cc
 #endif
 
-#ifdef ENABLE_AASERVER
-#define ENABLE_AASERVER_COMMON
-#endif
 
 #ifdef HAVE_VALGRIND_VALGRIND_H
 # include <valgrind/valgrind.h>

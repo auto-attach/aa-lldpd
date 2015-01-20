@@ -28,7 +28,7 @@
 #include <stdbool.h> /* bool */
 
 extern struct lldpd *lldp_cfg;
-#define cfg lldp_cfg
+//#define cfg lldp_cfg
 #endif
 
 inline static int
@@ -504,35 +504,6 @@ int lldp_send(struct lldpd *global,
 		))
 		    goto toobig;
 
-#ifdef ENABLE_AASERVER_COMMON
-	    /* remote ports */
-	    TAILQ_FOREACH (rport, &hardware->h_rports, p_entries){
-		if ( !TAILQ_EMPTY(&rport->p_isid_vlan_maps) ) {
-		    TAILQ_FOREACH (vlan_isid_map, &rport->p_isid_vlan_maps, m_entries) {
-		       vlan_isid_map->isid_vlan_data.status=2; /* Active */
-		       status_vlan_word = (vlan_isid_map->isid_vlan_data.status << 12) |
-					   vlan_isid_map->isid_vlan_data.vlan;
-		       log_info("auto_attach", "Vlan<->Isid remote send. Vlan: 0x%X(%d) "
-				"Isid: 0x%.2X%.2X%.2X(%d)",
-				       vlan_isid_map->isid_vlan_data.vlan,
-				       vlan_isid_map->isid_vlan_data.vlan,
-				       vlan_isid_map->isid_vlan_data.isid[0],
-				       vlan_isid_map->isid_vlan_data.isid[1],
-				       vlan_isid_map->isid_vlan_data.isid[2],
-				       (vlan_isid_map->isid_vlan_data.isid[0]<<16) |
-				       (vlan_isid_map->isid_vlan_data.isid[1]<<8) |
-				       (vlan_isid_map->isid_vlan_data.isid[2])
-				       );
-		       if (!(
-			   POKE_UINT16(status_vlan_word) &&
-			   POKE_BYTES(&vlan_isid_map->isid_vlan_data.isid,
-			   sizeof(vlan_isid_map->isid_vlan_data.isid))
-			   ))
-			      goto toobig;
-		    }
-		}
-	    }
-#else
 	    /* local port */
 	    TAILQ_FOREACH(vlan_isid_map, &port->p_isid_vlan_maps, m_entries) {
 		 log_info("auto_attach", "Vlan<->Isid local send. Vlan: 0x%X(%d) "
@@ -555,7 +526,6 @@ int lldp_send(struct lldpd *global,
 		    ))
 		    goto toobig;
 	    }
-#endif /* ENABLE_AASERVER_COMMON */
 
 	    if (! (POKE_END_LLDP_TLV) )
 		goto toobig;
@@ -1222,6 +1192,7 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 						found=0;
 						do {
 							struct lldpd_aa_isid_vlan_maps_tlv *isid_vlan_map_local = NULL;
+							struct lldpd_aa_isid_vlan_maps_tlv *aa_isid_vlan_map_local = NULL;
 							/* loop through local isid-vlan mappings, check for vlan, & isid
                                                          * if found, break out of this scope and the do/while.
 							 */
@@ -1255,6 +1226,30 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 
 								TAILQ_INSERT_TAIL(&(hardware->h_lport.p_isid_vlan_maps),
 									isid_vlan_map_local, m_entries);
+								// add to server local port as well
+								// from lldp_cfg extract the equivalent hardware structure
+								// extract the h_lport and add the isid-vlan map to it, make a copy
+	 	 						
+								{
+									struct lldpd_hardware *aahardware;
+
+									TAILQ_FOREACH(aahardware, &lldp_cfg->g_hardware, h_entries) {
+								                if (aahardware->h_sendfd == hardware->h_sendfd) {
+											if ((aa_isid_vlan_map_local = (struct lldpd_aa_isid_vlan_maps_tlv *) 
+													calloc(1, sizeof(struct lldpd_aa_isid_vlan_maps_tlv)))
+													== NULL ) {
+													log_warnx("lldp", "unable to allocate memory "
+														"for local aa_isid_vlan_maps_tlv struct");
+											}
+											else
+											{
+												memcpy(aa_isid_vlan_map_local,isid_vlan_map_local,sizeof(*isid_vlan_map_local));
+												TAILQ_INSERT_TAIL(&(aahardware->h_lport.p_isid_vlan_maps),
+													aa_isid_vlan_map_local, m_entries);
+											}
+										}
+        								}
+								}
 							}
 						}while(0);
 #endif // ENABLE_AASERVER

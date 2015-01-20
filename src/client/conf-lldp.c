@@ -184,7 +184,7 @@ register_commands_configure_lldp(struct cmd_node *configure)
 			    cmd_check_no_env, NULL, "ports"),
 			NULL, "1 for Enable, 0 for Disable",
 			NULL, cmd_store_env_value, "aa-enable"),
-		NEWLINE, "Set LLDP transmit delay",
+		NEWLINE, "Enable or Disable Auto-Attach",
 		NULL, cmd_aa_enable, NULL);
 #endif
 
