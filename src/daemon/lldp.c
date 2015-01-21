@@ -1232,9 +1232,20 @@ lldp_decode(struct lldpd *cfg, char *frame, int s,
 	 	 						
 								{
 									struct lldpd_hardware *aahardware;
+									found=0;
 
 									TAILQ_FOREACH(aahardware, &lldp_cfg->g_hardware, h_entries) {
 								                if (aahardware->h_sendfd == hardware->h_sendfd) {
+											TAILQ_FOREACH(aa_isid_vlan_map_local , &aahardware->h_lport.p_isid_vlan_maps, m_entries) {
+												if ( aa_isid_vlan_map_local->isid_vlan_data.vlan == isid_vlan_map->isid_vlan_data.vlan &&
+												     (memcmp(aa_isid_vlan_map_local->isid_vlan_data.isid,isid_vlan_map->isid_vlan_data.isid,3) == 0))
+												{
+													found=1;
+													break;
+												}
+											}
+											if (found) break;
+
 											if ((aa_isid_vlan_map_local = (struct lldpd_aa_isid_vlan_maps_tlv *) 
 													calloc(1, sizeof(struct lldpd_aa_isid_vlan_maps_tlv)))
 													== NULL ) {
