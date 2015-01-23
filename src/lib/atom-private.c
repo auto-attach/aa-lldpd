@@ -525,6 +525,7 @@ _lldpctl_atom_set_int_config(lldpctl_atom_t *atom, lldpctl_key_t key,
 	struct lldpd_config config;
 	memcpy(&config, c->config, sizeof(struct lldpd_config));
 
+
 	switch (key) {
 	case lldpctl_k_config_paused:
 		config.c_paused = c->config->c_paused = value;
@@ -839,6 +840,7 @@ _lldpctl_atom_set_atom_port(lldpctl_atom_t *atom, lldpctl_key_t key, lldpctl_ato
 	int rc;
 	char *canary;
 
+
 #ifdef ENABLE_DOT3
 	struct _lldpctl_atom_dot3_power_t *dpow;
 #endif
@@ -891,6 +893,11 @@ _lldpctl_atom_set_atom_port(lldpctl_atom_t *atom, lldpctl_key_t key, lldpctl_ato
 		}
 		mloc = (struct _lldpctl_atom_med_location_t *)value;
 		set.med_location = mloc->location;
+		break;
+#endif
+#ifdef ENABLE_AASERVER
+	case lldpctl_k_port_aa_enable:
+		set.aa_enable = value;
 		break;
 #endif
 	default:
@@ -1132,6 +1139,10 @@ _lldpctl_atom_get_int_port(lldpctl_atom_t *atom, lldpctl_key_t key)
 #ifdef ENABLE_DOT1
 	case lldpctl_k_port_vlan_pvid:
 		return port->p_pvid;
+#endif
+#ifdef ENABLE_AASERVER
+	case lldpctl_k_config_lldp_aa_enabled:
+		return port->aa_enabled;
 #endif
 	case lldpctl_k_chassis_index:
 		return chassis->c_index;

@@ -50,26 +50,47 @@ static int
 cmd_aa_enable(struct lldpctl_conn_t *conn, struct writer *w,
     struct cmd_env *env, void *arg)
 {
-	log_debug("lldpctl", "set aa enable/disable");
+	const char *ports;
 
-	lldpctl_atom_t *config = lldpctl_get_configuration(conn);
-	if (config == NULL) {
-		log_warnx("lldpctl", "unable to get configuration from lldpd. %s",
-		    lldpctl_last_strerror(conn));
-		return 0;
-	}
-	if (lldpctl_atom_set_str(config,
-		lldpctl_k_config_lldp_aa_enabled, cmdenv_get(env, "aa-enable")) == NULL) {
-		log_warnx("lldpctl", "unable to set aa enable/disable. %s",
-		    lldpctl_last_strerror(conn));
+	if ( (ports = cmdenv_get(env, "ports")) == NULL)
+	{
+		lldpctl_atom_t *config = lldpctl_get_configuration(conn);
+		log_debug("lldpctl", "set GLOBAL aa enable/disable");
+		if (config == NULL) {
+			log_warnx("lldpctl", "unable to get configuration from lldpd. %s",
+			    lldpctl_last_strerror(conn));
+			return 0;
+		}
+		if (lldpctl_atom_set_str(config,
+			lldpctl_k_config_lldp_aa_enabled, cmdenv_get(env, "aa-enable")) == NULL) {
+			log_warnx("lldpctl", "unable to set aa enable/disable. %s",
+			    lldpctl_last_strerror(conn));
+			lldpctl_atom_dec_ref(config);
+			return 0;
+		}
 		lldpctl_atom_dec_ref(config);
-		return 0;
+
 	}
-	log_info("lldpctl", "aa enable/disable set to new value");
-	lldpctl_atom_dec_ref(config);
+	else if (cmdenv_get(env, "aa-enable"))
+	{
+        	lldpctl_atom_t *iface;
+		while (iface = cmd_iterate_on_interfaces(conn, env)) {
+			const char *name = lldpctl_atom_get_str(iface, lldpctl_k_interface_name);
+			lldpctl_atom_t *port = lldpctl_get_port(iface);
+
+
+			if (lldpctl_atom_set(port, lldpctl_k_port_aa_enable, 
+				cmdenv_get(env, "aa-enable")[0]=='1'?2:1) == NULL) {
+				log_warnx("lldpctl", "unable to set AA on %s. %s.",
+					name, lldpctl_last_strerror(conn));
+                        } else
+				log_info("lldpctl", "LLDP AA has been set for port %s", name);
+		}
+	}
+
 	return 1;
 }
-#endif
+#endif //ENABLE_AASERVER
 
 static int
 cmd_txhold(struct lldpctl_conn_t *conn, struct writer *w,
@@ -121,7 +142,6 @@ cmd_portid_type(struct lldpctl_conn_t *conn, struct writer *w,
 			break;
 		}
 	}
-
 	if (value == -1) {
 		log_warnx("lldpctl", "invalid value");
 		lldpctl_atom_dec_ref(config);
@@ -141,6 +161,7 @@ cmd_portid_type(struct lldpctl_conn_t *conn, struct writer *w,
 
 	return 1;
 }
+
 
 /**
  * Register `configure lldp` commands.
@@ -181,7 +202,7 @@ register_commands_configure_lldp(struct cmd_node *configure)
 		commands_new(
 			commands_new(configure_lldp,
 			    "aa-enable", "Enable or Disable Auto-Attach",
-			    cmd_check_no_env, NULL, "ports"),
+			    NULL, NULL, NULL),
 			NULL, "1 for Enable, 0 for Disable",
 			NULL, cmd_store_env_value, "aa-enable"),
 		NEWLINE, "Enable or Disable Auto-Attach",
@@ -216,4 +237,5 @@ register_commands_configure_lldp(struct cmd_node *configure)
 				b_map->string);
 		}
 	}
+
 }

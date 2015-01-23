@@ -260,6 +260,7 @@ struct lldpd_port {
 #ifdef ENABLE_AA
 	struct lldpd_aa_element_tlv p_element;
 	TAILQ_HEAD(, lldpd_aa_isid_vlan_maps_tlv)	p_isid_vlan_maps; 
+	int	aa_enabled;
 #endif
 };
 MARSHAL_BEGIN(lldpd_port)
@@ -290,6 +291,9 @@ struct lldpd_port_set {
 #endif
 #ifdef ENABLE_DOT3
 	struct lldpd_dot3_power *dot3_power;
+#endif
+#ifdef ENABLE_AA
+	int aa_enable;
 #endif
 };
 MARSHAL_BEGIN(lldpd_port_set)
@@ -347,7 +351,7 @@ struct lldpd_config {
 					  slaves */
 	int c_lldp_portid_type; /* The PortID type */
 #ifdef  ENABLE_AA
-	int c_aa_enabled;	/* Global AA Enabled */
+	int c_aa_enabled;       /* Global AA on/off switch */
 #endif
 };
 MARSHAL_BEGIN(lldpd_config)

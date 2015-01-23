@@ -700,6 +700,7 @@ typedef enum {
 	lldpctl_k_med_policy_dscp,     /**< `(I,W)` MED policy DSCP */
 
 	lldpctl_k_port_med_locations = 2100, /**< `(AL,WO)` MED locations attached to a port. */
+	lldpctl_k_port_aa_enable,	/**< `(I,WO)` AA Enabled Port */
 	lldpctl_k_med_location_format, /**< `(IS,W)` MED location format. See
 					* `LLDP_MED_LOCFORMAT_*`. 0 if this
 					* location is not defined. When written,

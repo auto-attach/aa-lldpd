@@ -178,7 +178,7 @@ client_handle_set_configuration(struct lldpd *cfg, enum hmsg_type *type,
 	}
 
 #ifdef ENABLE_AASERVER
-	if (CHANGED(c_aa_enabled) && config->c_aa_enabled != 0) {
+	if (CHANGED(c_aa_enabled)) {
 		if (config->c_aa_enabled >= 0 && config->c_aa_enabled <= 1) {
 			log_debug("rpc", "client change aa enable to %d",
 			    config->c_aa_enabled);
@@ -307,6 +307,20 @@ client_handle_set_port(struct lldpd *cfg, enum hmsg_type *type,
 	    if (!strcmp(hardware->h_ifname, set->ifname)) {
 		    struct lldpd_port *port = &hardware->h_lport;
 		    (void)port;
+#ifdef ENABLE_AASERVER
+		if (set->aa_enable && set->aa_enable < 3) {
+			if ( set->aa_enable == 1)
+				port->aa_enabled = 0; // set off
+			else
+				port->aa_enabled = 1; // set on
+			log_debug("rpc", "requested change to AA port aa now set to %d",port->aa_enabled);
+		}else {
+			log_info("rpc", "Invalid aa_enable value: %d\n",
+			    set->aa_enable);
+		}
+
+#endif
+
 #ifdef ENABLE_LLDPMED
 		    if (set->med_policy && set->med_policy->type > 0) {
 			    log_debug("rpc", "requested change to MED policy");
